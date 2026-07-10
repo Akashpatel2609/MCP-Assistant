@@ -175,6 +175,11 @@ body {
 .breadcrumb-slash { color: var(--border); transform: rotate(-5deg); }
 .breadcrumb-leaf { color: var(--text-primary); font-weight: 600; }
 
+/* Status Indicators */
+.status-dot { transition: background-color 0.2s, box-shadow 0.2s; }
+.status-dot.red { background-color: #ef4444 !important; box-shadow: 0 0 6px #ef4444; }
+.status-dot.green { background-color: #10b981 !important; box-shadow: 0 0 6px #10b981; }
+
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .add-source-container { position: relative; }
 .btn-add-source {

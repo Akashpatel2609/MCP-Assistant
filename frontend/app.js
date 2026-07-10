@@ -149,9 +149,9 @@ function initWebSocket(sessionId) {
 }
 
 function updateSystemStatus(state, text) {
-  const dot = systemStatusBadge.querySelector('.pulse-ring');
-  dot.className = `pulse-ring ${state === 'connected' ? 'green' : 'red'}`;
-  systemStatusBadge.querySelector('.status-label').textContent = text;
+  const dot = systemStatusBadge.querySelector('.status-dot');
+  dot.className = `status-dot ${state === 'connected' ? 'green' : 'red'}`;
+  systemStatusBadge.querySelector('.status-text').textContent = text;
 }
 
 function handleMessageEvent(payload) {

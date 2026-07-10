@@ -103,11 +103,16 @@
     <!-- Top Deck Navigation Bar -->
     <header class="workspace-header">
       <div class="header-breadcrumbs">
-        <span class="breadcrumb-root">All Projects</span>
+        <span class="breadcrumb-root">AI Projects</span>
         <svg class="breadcrumb-slash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="2" x2="6" y2="22"/>
         </svg>
         <span class="breadcrumb-leaf" id="active-session-title">Overview</span>
+      </div>
+
+      <div class="system-status" id="system-status-indicator" style="margin-left: 16px; font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+        <span class="status-dot red" style="width: 6px; height: 6px; border-radius: 50%; display: inline-block;"></span>
+        <span class="status-text">SYS_DISCONNECT</span>
       </div>
 
       <div class="header-actions">
