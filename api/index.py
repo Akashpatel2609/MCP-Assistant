@@ -1,14 +1,17 @@
 import sys
+import os
 import traceback
 from pathlib import Path
 from fastapi import FastAPI
 
+# Add parent and backend directories to path so all relative/sub-module imports work inside Vercel
+sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent / "backend"))
+
 app = FastAPI()
 
 try:
-    # Add backend directory to path so imports work correctly inside Vercel's runtime
-    sys.path.append(str(Path(__file__).parent.parent / "backend"))
-    from main import app as real_app
+    from backend.main import app as real_app
     app = real_app
 except Exception as exc:
     tb = traceback.format_exc()
