@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   NEXUS AI — Spatial Canvas Stylesheet (Unified Theme System)
+   NEXUS AI — Spatial Canvas Stylesheet (With Hamburger Drawer System)
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Design Tokens ────────────────────────────────────────────────────── */
@@ -87,7 +87,77 @@ body {
   display: flex; flex-direction: column;
   height: 100vh; width: 100vw;
   padding: 16px;
+  flex: 1;
 }
+
+/* ── Sliding Drawer Menu (Past Chats Panel) ─────────────────────────── */
+.drawer-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  z-index: 490;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.drawer-backdrop.active {
+  display: block;
+  opacity: 1;
+}
+
+.hamburger-drawer {
+  position: fixed; top: 0; bottom: 0; left: -290px;
+  width: 280px;
+  background: var(--bg-deck);
+  backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+  border-right: 1px solid var(--border);
+  box-shadow: 10px 0 40px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column;
+  padding: 20px; z-index: 500;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hamburger-drawer.active {
+  left: 0;
+}
+
+.drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 16px; border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.drawer-brand {
+  font-weight: 700; font-size: 14px; color: var(--text-primary);
+  flex: 1; margin-left: 10px;
+}
+.drawer-close-btn {
+  background: none; border: none; color: var(--text-secondary);
+  display: grid; place-items: center; padding: 4px; border-radius: 6px;
+  cursor: pointer; transition: background 0.2s;
+}
+.drawer-close-btn:hover { background: rgba(255,255,255,0.03); color: var(--text-primary); }
+
+.btn-new-chat {
+  width: 100%; padding: 10px; border-radius: 10px; background: var(--accent-muted);
+  border: 1px solid var(--border-glow); display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 600; font-size: 13px; color: var(--accent-light); transition: all 0.2s;
+  margin-bottom: 16px; cursor: pointer;
+}
+.btn-new-chat:hover { background: var(--accent); color: #fff; transform: translateY(-1px); }
+
+.drawer-sessions-list {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+}
+.session-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-radius: 8px; font-size: 13px;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+}
+.session-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.session-item.active { background: rgba(139, 92, 246, 0.08); color: var(--accent-light); font-weight: 600; }
+.session-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.btn-delete-session { background: none; border: none; color: var(--text-muted); opacity: 0; font-size: 14px; cursor: pointer; }
+.session-item:hover .btn-delete-session { opacity: 1; }
+.btn-delete-session:hover { color: #ef4444; }
 
 /* ── Floating Control Deck (Top Navigation) ───────────────────────────── */
 .control-deck {
@@ -103,11 +173,18 @@ body {
   z-index: 10;
 }
 .deck-left { display: flex; align-items: center; gap: 12px; }
+.hamburger-menu-btn {
+  background: none; border: none; color: var(--text-secondary);
+  width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+  cursor: pointer; transition: all 0.2s;
+}
+.hamburger-menu-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
 .logo-wrapper {
   background: var(--accent-light);
   color: #fff;
   border-radius: 8px;
-  width: 32px; height: 32px;
+  width: 30px; height: 30px;
   display: grid; place-items: center;
 }
 .app-brand-title { font-weight: 700; letter-spacing: 1px; font-size: 13px; }
@@ -124,11 +201,16 @@ body {
   box-shadow: 0 0 8px #10b981;
 }
 
-.deck-right { display: flex; align-items: center; gap: 8px; }
+.deck-right { display: flex; align-items: center; gap: 12px; }
+.active-title-indicator {
+  font-size: 12px; color: var(--text-secondary); font-weight: 500;
+  max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 .deck-action-btn {
   background: none; border: 1px solid var(--border);
-  padding: 8px 12px; border-radius: 10px;
-  font-size: 12px; display: flex; align-items: center; gap: 6px;
+  padding: 8px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
   color: var(--text-primary); transition: all 0.2s;
   cursor: pointer;
 }
@@ -139,40 +221,6 @@ body {
 .theme-toggle .moon-icon { display: block; }
 :root[data-theme="light"] .theme-toggle .sun-icon { display: block; }
 :root[data-theme="light"] .theme-toggle .moon-icon { display: none; }
-
-/* Dynamic Floating Sessions list Board */
-.session-dropdown-container { position: relative; }
-.sessions-board {
-  position: absolute; right: 0; top: calc(100% + 8px);
-  width: 280px; background: var(--bg-deck);
-  backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-  border: 1px solid var(--border-active); border-radius: 14px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-  display: none; flex-direction: column;
-  padding: 12px; z-index: 200;
-}
-.sessions-board.active { display: flex; }
-.board-header {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 11px; font-weight: 700; color: var(--text-secondary);
-  border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;
-}
-.btn-new-chat-alt {
-  background: var(--accent); color: #fff; border: none;
-  padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;
-}
-.board-list { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-.session-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 10px; border-radius: 8px; font-size: 12px;
-  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
-}
-.session-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-.session-item.active { background: var(--accent-muted); color: var(--accent-light); font-weight: 600; }
-.session-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-.btn-delete-session { background: none; border: none; color: var(--text-muted); opacity: 0; font-size: 14px; }
-.session-item:hover .btn-delete-session { opacity: 1; }
-.btn-delete-session:hover { color: #ef4444; }
 
 /* ── Spatial Message Arena ────────────────────────────────────────────── */
 .chat-viewport {

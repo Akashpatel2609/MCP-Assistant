@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   NEXUS AI — app.js (Spatial Canvas Framework)
+   NEXUS AI — app.js (Hamburger Drawer Navigation)
    ═══════════════════════════════════════════════════════════════════════ */
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -30,10 +30,14 @@ const systemStatusBadge       = document.getElementById('system-status-indicator
 
 // Theme Switcher & Menu Panel Triggers
 const themeToggleBtn          = document.getElementById('theme-toggle-btn');
-const sessionMenuTrigger      = document.getElementById('session-menu-trigger');
-const sessionsBoardPanel      = document.getElementById('sessions-board-panel');
 const consoleAttachTrigger    = document.getElementById('console-attach-trigger');
 const attachPopMenu           = document.getElementById('attach-pop-menu');
+
+// Hamburger Drawer selectors
+const openDrawerBtn           = document.getElementById('open-drawer-btn');
+const closeDrawerBtn          = document.getElementById('close-drawer-btn');
+const hamburgerDrawer         = document.getElementById('hamburger-drawer');
+const drawerBackdrop          = document.getElementById('drawer-backdrop');
 
 // Attachment menu items
 const popOptFile              = document.getElementById('pop-opt-file');
@@ -201,7 +205,7 @@ async function loadSessions() {
           deleteSession(sess.id);
         } else {
           switchSession(sess.id, sess.title);
-          sessionsBoardPanel.classList.remove('active');
+          closeDrawer();
         }
       });
       sessionListCont.appendChild(item);
@@ -266,7 +270,7 @@ async function restoreMessages(id) {
 
 function startNewSession() {
   currentSessionId = crypto.randomUUID();
-  activeSessionTitle.textContent = "Chats";
+  activeSessionTitle.textContent = "New Chat";
   initWebSocket(currentSessionId);
   clearScroller();
   showWelcomeHero();
@@ -310,12 +314,9 @@ async function scrapeWebUrl(url) {
   progressChip.innerHTML = `🌐 Scrapes URL: ${escapeHtml(url)}...`;
   activeUploadChips.appendChild(progressChip);
 
-  // Build simulated text dump payload and pass through upload framework endpoints
   try {
-    // Generate dummy filename from url string
     const safeName = url.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40) + ".txt";
     
-    // We scrape via backend search tool framework helper
     const searchRes = await fetch('/upload', {
       method: 'POST',
       body: (() => {
@@ -443,6 +444,23 @@ function escapeHtml(s) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// Drawer Navigation handlers
+// ═══════════════════════════════════════════════════════════════════════
+function openDrawer() {
+  hamburgerDrawer.classList.add('active');
+  drawerBackdrop.classList.add('active');
+}
+
+function closeDrawer() {
+  hamburgerDrawer.classList.remove('active');
+  drawerBackdrop.classList.remove('active');
+}
+
+openDrawerBtn.addEventListener('click', openDrawer);
+closeDrawerBtn.addEventListener('click', closeDrawer);
+drawerBackdrop.addEventListener('click', closeDrawer);
+
+// ═══════════════════════════════════════════════════════════════════════
 // Theme System Framework triggers
 // ═══════════════════════════════════════════════════════════════════════
 themeToggleBtn.addEventListener('click', () => {
@@ -450,7 +468,6 @@ themeToggleBtn.addEventListener('click', () => {
   const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', nextTheme);
   
-  // Swap code style colors theme
   const styleEl = document.getElementById('highlight-theme');
   if (nextTheme === 'light') {
     styleEl.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css";
@@ -463,15 +480,7 @@ themeToggleBtn.addEventListener('click', () => {
 // ═══════════════════════════════════════════════════════════════════════
 // Layout Click & Overlay Event Bindings
 // ═══════════════════════════════════════════════════════════════════════
-sessionMenuTrigger.addEventListener('click', (e) => {
-  e.stopPropagation();
-  sessionsBoardPanel.classList.toggle('active');
-});
-
 document.addEventListener('click', (e) => {
-  if (!sessionsBoardPanel.contains(e.target) && e.target !== sessionMenuTrigger) {
-    sessionsBoardPanel.classList.remove('active');
-  }
   if (!attachPopMenu.contains(e.target) && e.target !== consoleAttachTrigger) {
     attachPopMenu.classList.remove('active');
   }
@@ -516,7 +525,6 @@ hiddenFileInput.addEventListener('change', (e) => {
 hiddenMediaInput.addEventListener('change', (e) => {
   [...e.target.files].forEach(file => {
     showToast(`Indexing media assets context: ${file.name}`, 'success');
-    // Media mock upload indexing trigger
     uploadFile(file);
   });
   hiddenMediaInput.value = "";
@@ -524,7 +532,7 @@ hiddenMediaInput.addEventListener('change', (e) => {
 
 newChatBtn.addEventListener('click', () => {
   startNewSession();
-  sessionsBoardPanel.classList.remove('active');
+  closeDrawer();
 });
 
 queryTextInput.addEventListener('input', () => {
