@@ -24,6 +24,8 @@ backend/uploads/*
 backend/data/*
 !backend/uploads/.gitkeep
 !backend/data/.gitkeep
+data/
+uploads/
 
 # IDE
 .vscode/
