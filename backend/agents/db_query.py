@@ -7,7 +7,13 @@ Only SELECT queries are allowed for safety.
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path("data") / "company.db"
+import os
+
+# Redirect DB_PATH to /tmp on Vercel serverless containers to avoid read-only crashes
+if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
+    DB_PATH = Path("/tmp") / "company.db"
+else:
+    DB_PATH = Path("data") / "company.db"
 
 
 class DBQueryAgent:
