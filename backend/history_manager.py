@@ -55,10 +55,10 @@ class HistoryManager:
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         conn.execute("PRAGMA foreign_keys = ON")
-        if not os.getenv("VERCEL"):
-            conn.execute("PRAGMA journal_mode = WAL")
-        else:
+        if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
             conn.execute("PRAGMA journal_mode = DELETE")
+        else:
+            conn.execute("PRAGMA journal_mode = WAL")
         conn.row_factory = sqlite3.Row
         return conn
 
