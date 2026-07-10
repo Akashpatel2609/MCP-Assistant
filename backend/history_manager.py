@@ -13,18 +13,19 @@ from typing import Dict, List, Optional
 
 import os
 
-# Detect Vercel serverless environment (either VERCEL env or AWS Lambda environment)
+# Use in-memory SQLite on Vercel to prevent filesystem locking and container freeze operational errors
 if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
-    DB_PATH = Path("/tmp/nexus_history.db")
+    DB_PATH = ":memory:"
 else:
-    DB_PATH = Path("data/nexus_history.db")
+    DB_PATH = "data/nexus_history.db"
 
 
 class HistoryManager:
     """SQLite-backed persistent conversation storage."""
 
     def __init__(self):
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if DB_PATH != ":memory:":
+            Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
         self._migrate()
 
     # ── Schema ────────────────────────────────────────────────────────────────
