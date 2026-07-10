@@ -6,7 +6,13 @@ Integrated with the central RAG index pipeline.
 import aiofiles
 from pathlib import Path
 
-UPLOAD_DIR = Path("uploads")
+import os
+
+if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
+    UPLOAD_DIR = Path("/tmp/uploads")
+else:
+    UPLOAD_DIR = Path("uploads")
+
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 
