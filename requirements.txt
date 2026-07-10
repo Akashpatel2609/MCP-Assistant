@@ -15,4 +15,3 @@ qdrant-client==1.11.3
 rank-bm25==0.2.2
 pypdf==5.1.0
 python-docx==1.1.2
-sentence-transformers==3.2.1
