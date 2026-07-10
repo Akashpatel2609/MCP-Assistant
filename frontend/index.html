@@ -3,183 +3,289 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nexus AI — Spatial Canvas</title>
+  <title>Nexus AI — Dashboard Platform</title>
   
-  <!-- Premium Fonts -->
+  <!-- Premium Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <!-- Markdown + Syntax Highlighting -->
+  <!-- Markdown + Code Highlight -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css" id="highlight-theme" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="highlight-theme" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
 
-<!-- Ambient Moving Spatial Background -->
-<div class="spatial-canvas" aria-hidden="true">
-  <div class="nebula nebula-violet"></div>
-  <div class="nebula nebula-blue"></div>
-</div>
+<div class="vercel-app-shell">
 
-<!-- ─── SLIDING DRAWER MENU (LEFT SIDEBAR) ─── -->
-<div class="drawer-backdrop" id="drawer-backdrop"></div>
-<aside class="hamburger-drawer" id="hamburger-drawer">
-  <div class="drawer-header">
-    <div class="logo-wrapper">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+  <!-- ─── 1. LEFT SIDEBAR PANEL ─── -->
+  <aside class="vercel-sidebar">
+    <!-- Scope Selector Dropdown -->
+    <div class="scope-dropdown">
+      <div class="scope-icon-box">N</div>
+      <div class="scope-details">
+        <span class="scope-name">Akash's Nexus</span>
+        <span class="scope-plan-badge">Hobby</span>
+      </div>
+      <svg class="scope-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="6 9 12 15 18 9"/>
       </svg>
     </div>
-    <span class="drawer-brand">Nexus History</span>
-    <button class="drawer-close-btn" id="close-drawer-btn" title="Close Drawer">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+
+    <!-- Search Input Deck -->
+    <div class="sidebar-search">
+      <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-    </button>
-  </div>
-  
-  <button class="btn-new-chat" id="new-chat-btn">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-    New Chat
-  </button>
+      <input type="text" placeholder="Search..." id="search-input" />
+      <span class="search-kbd">⌘K</span>
+    </div>
 
-  <div class="drawer-sessions-list" id="session-list-container">
-    <!-- Past chats entries dynamically loaded -->
-  </div>
-</aside>
-
-<div class="app-container">
-
-  <!-- ─── FLOATING CONTROL DECK (TOP NAV) ─── -->
-  <header class="control-deck">
-    <div class="deck-left">
-      <!-- Hamburger Menu Icon Button -->
-      <button class="hamburger-menu-btn" id="open-drawer-btn" title="View Past Chats">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="3" y1="12" x2="21" y2="12"/>
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <line x1="3" y1="18" x2="21" y2="18"/>
+    <!-- Main Navigation Link Items -->
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-link active" id="nav-chat">
+        <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-      </button>
-      <span class="app-brand-title">NEXUS AI</span>
-      <span class="status-indicator" id="system-status-indicator">
-        <span class="pulse-ring"></span>
-        <span class="status-label">SYS_IDLE</span>
-      </span>
-    </div>
+        Overview Chat
+      </a>
+      <a href="#" class="nav-link" id="nav-knowledge">
+        <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        Knowledge Base
+      </a>
+      <a href="#" class="nav-link" id="nav-sql">
+        <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>
+        </svg>
+        SQL Tables
+      </a>
+      <a href="#" class="nav-link" id="nav-registry">
+        <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        MCP Registry
+      </a>
+      <a href="#" class="nav-link" id="nav-analytics">
+        <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        Speed Analytics
+      </a>
+    </nav>
 
-    <div class="deck-right">
-      <span class="active-title-indicator" id="active-session-title">New Chat</span>
-
-      <!-- Theme Switcher -->
-      <button class="deck-action-btn theme-toggle" id="theme-toggle-btn" title="Toggle Theme Frame">
-        <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <!-- Unified Profile Badge Footer -->
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-avatar">AP</div>
+        <div class="user-details">
+          <span class="user-name">Akash Patel</span>
+          <span class="user-role">Developer</span>
+        </div>
+      </div>
+      <button class="btn-theme-switcher" id="theme-toggle-btn" title="Toggle Light/Dark Frame">
+        <svg class="sun-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
-        <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="moon-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
       </button>
     </div>
-  </header>
+  </aside>
 
-  <!-- ─── SPATIAL CONVERSATION ARENA ─── -->
-  <main class="chat-viewport">
-    <div class="scroll-wrapper" id="message-scroller">
-      
-      <!-- Spatial Welcome Canvas -->
-      <div class="canvas-welcome" id="welcome-hero-panel">
-        <div class="welcome-heading-wrapper">
-          <h1 class="welcome-heading">Intelligence Connected.</h1>
-        </div>
-        <p class="welcome-tagline">Nexus connects files, media, databases, and the web into a singular semantic workspace.</p>
-        
-        <div class="suggest-deck" id="suggestion-pills-container">
-          <!-- Suggested triggers -->
-        </div>
+  <!-- ─── 2. MAIN WORKSPACE PANEL ─── -->
+  <main class="vercel-workspace">
+    <!-- Top Deck Navigation Bar -->
+    <header class="workspace-header">
+      <div class="header-breadcrumbs">
+        <span class="breadcrumb-root">All Projects</span>
+        <svg class="breadcrumb-slash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="2" x2="6" y2="22"/>
+        </svg>
+        <span class="breadcrumb-leaf" id="active-session-title">Overview</span>
       </div>
 
+      <div class="header-actions">
+        <div class="add-source-container">
+          <button class="btn-add-source" id="add-source-dropdown-trigger">
+            Add Source
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <!-- Floating Action Dropdown Menu -->
+          <div class="source-dropdown-menu" id="source-dropdown-menu">
+            <button class="dropdown-item" id="opt-file-upload">
+              <span class="drop-icon">📁</span>
+              <span>Ingest Document</span>
+            </button>
+            <button class="dropdown-item" id="opt-media-upload">
+              <span class="drop-icon">🖼️</span>
+              <span>Attach Media</span>
+            </button>
+            <button class="dropdown-item" id="opt-web-scrape">
+              <span class="drop-icon">🌐</span>
+              <span>Connect Web URL</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content Area -->
+    <div class="workspace-scroll-area">
+      <div class="workspace-grid-container">
+
+        <!-- Active View Panels (Toggled by Sidebar Nav) -->
+
+        <!-- ── PANEL A: CHAT OVERVIEW (Conversational Interface) ── -->
+        <div class="dashboard-panel active" id="panel-chat-view">
+          
+          <!-- Sleek Usage Analytics Grid (Vercel Style) -->
+          <section class="vercel-card-grid usage-analytics-grid">
+            <div class="vercel-card usage-card">
+              <span class="card-section-lbl">Usage (Last 30 Days)</span>
+              <div class="usage-metric-item">
+                <div class="metric-row">
+                  <span>RAG Similarity Reads</span>
+                  <span class="metric-value" id="val-rag-reads">0 / 100</span>
+                </div>
+                <div class="metric-bar-container"><div class="metric-bar-fill" id="fill-rag-reads" style="width: 0%"></div></div>
+              </div>
+              <div class="usage-metric-item">
+                <div class="metric-row">
+                  <span>Edge Web Scrapes</span>
+                  <span class="metric-value" id="val-web-scrapes">0 / 20</span>
+                </div>
+                <div class="metric-bar-container"><div class="metric-bar-fill" id="fill-web-scrapes" style="width: 0%"></div></div>
+              </div>
+              <div class="usage-metric-item">
+                <div class="metric-row">
+                  <span>MCP Database Queries</span>
+                  <span class="metric-value" id="val-db-queries">0 / 150</span>
+                </div>
+                <div class="metric-bar-container"><div class="metric-bar-fill" id="fill-db-queries" style="width: 0%"></div></div>
+              </div>
+            </div>
+
+            <!-- Active Sessions / Projects Grid -->
+            <div class="vercel-card projects-card">
+              <span class="card-section-lbl">Recent Chats</span>
+              <div class="projects-list-scroll" id="recent-chats-grid">
+                <!-- dynamic chats list items -->
+              </div>
+            </div>
+          </section>
+
+          <!-- Chat Conversation Arena -->
+          <div class="conversational-hub">
+            <div class="conversational-messages" id="message-scroller">
+              
+              <!-- Clean Vercel Welcome Screen -->
+              <div class="welcome-screen-canvas" id="welcome-hero-panel">
+                <h1 class="welcome-heading">Deploy Your Intelligence.</h1>
+                <p class="welcome-tagline">Nexus connects live file indexes, corporate SQLite tables, and web search engines directly into a unified Serverless AI interface.</p>
+                <div class="suggest-chip-deck" id="suggestion-pills-container">
+                  <!-- Triggers -->
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Custom Input Console Console -->
+            <div class="console-wrapper">
+              <div class="drag-zone-overlay" id="drag-overlay-panel">Drop Documents to Ingest Directly to Qdrant</div>
+              <div class="upload-progress-tray" id="active-upload-chips"></div>
+
+              <div class="console-bar">
+                <textarea id="query-text-input" placeholder="Ask questions, query tables, run code, or browse the web..." rows="1"></textarea>
+                <button class="btn-console-send" id="submit-query-btn" disabled>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Compact loading status -->
+              <div class="activity-loader" id="agent-active-status" style="display:none">
+                <span class="pulse-dot"></span>
+                <span id="agent-status-text">Thinking...</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── PANEL B: KNOWLEDGE BASE ── -->
+        <div class="dashboard-panel" id="panel-knowledge-view">
+          <div class="vercel-panel-header">
+            <h2>Knowledge Base</h2>
+            <p>Documents indexed in Qdrant Vector memory via semantic RAG pipelines.</p>
+          </div>
+          <div class="document-registry-list" id="document-registry-list">
+            <!-- Dynamic files -->
+          </div>
+        </div>
+
+        <!-- ── PANEL C: SQL SCHEMAS ── -->
+        <div class="dashboard-panel" id="panel-sql-view">
+          <div class="vercel-panel-header">
+            <h2>Corporate Database Registry</h2>
+            <p>Read-only SQLite schema configurations currently loaded for semantic SQL query tools.</p>
+          </div>
+          <div class="sql-schema-card">
+            <pre><code class="language-sql" id="database-schema-container">Loading schemas...</code></pre>
+          </div>
+        </div>
+
+        <!-- ── PANEL D: TOOLS REGISTRY ── -->
+        <div class="dashboard-panel" id="panel-registry-view">
+          <div class="vercel-panel-header">
+            <h2>MCP Tools Registry</h2>
+            <p>Configured Server Tools available for execution by the AI routing agents.</p>
+          </div>
+          <div class="mcp-tools-grid" id="mcp-tools-list">
+            <!-- Dynamic tool items -->
+          </div>
+        </div>
+
+        <!-- ── PANEL E: SPEED ANALYTICS ── -->
+        <div class="dashboard-panel" id="panel-analytics-view">
+          <div class="vercel-panel-header">
+            <h2>Serverless Execution Speed</h2>
+            <p>Real-time response latencies for backend AI inference, routing engines, and retrieval tasks.</p>
+          </div>
+          <div class="analytics-metrics-deck">
+            <div class="metric-card-large">
+              <span class="metric-card-lbl">Avg Response Latency</span>
+              <span class="metric-card-val" id="stat-latency">0ms</span>
+            </div>
+            <div class="metric-card-large">
+              <span class="metric-card-lbl">Total API Interchanges</span>
+              <span class="metric-card-val" id="stat-total-msgs">0</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </main>
-
-  <!-- ─── FLOATING ACTION DOCK (INPUT ZONE) ─── -->
-  <footer class="input-dock-container">
-    <div class="drag-zone-overlay" id="drag-overlay-panel">
-      <div class="drag-message">Drop Files Anywhere to Ingest</div>
-    </div>
-
-    <!-- Active uploads trace -->
-    <div class="upload-progress-tray" id="active-upload-chips"></div>
-
-    <!-- Dynamic Attachment Pop-Menu -->
-    <div class="dock-pop-menu" id="attach-pop-menu">
-      <button class="pop-menu-item" id="pop-opt-file">
-        <span class="pop-icon">📁</span>
-        <div class="pop-details">
-          <span class="pop-title">Ingest Document</span>
-          <span class="pop-desc">Upload PDF, DOCX, TXT into RAG</span>
-        </div>
-      </button>
-      <button class="pop-menu-item" id="pop-opt-media">
-        <span class="pop-icon">🖼️</span>
-        <div class="pop-details">
-          <span class="pop-title">Attach Media</span>
-          <span class="pop-desc">Ingest images and media context</span>
-        </div>
-      </button>
-      <button class="pop-menu-item" id="pop-opt-web">
-        <span class="pop-icon">🌐</span>
-        <div class="pop-details">
-          <span class="pop-title">Connect Web URL</span>
-          <span class="pop-desc">Fetch and index a web page</span>
-        </div>
-      </button>
-    </div>
-
-    <!-- Master Input Console -->
-    <div class="console-box">
-      <button class="console-action-btn" id="console-attach-trigger" title="Attach context sources">
-        <svg class="plus-symbol" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </button>
-
-      <textarea 
-        id="query-text-input" 
-        placeholder="Query files, scan databases, browse the web, execute code..."
-        rows="1"
-      ></textarea>
-
-      <button class="console-send-btn" id="submit-query-btn" disabled>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Mini loading trace -->
-    <div class="live-activity-bar" id="agent-active-status" style="display: none;">
-      <span class="pulse-indicator"></span>
-      <span class="activity-label" id="agent-status-text">Thinking...</span>
-    </div>
-  </footer>
-
 </div>
 
-<!-- Context URL Input Modal -->
+<!-- Modal Inputs -->
 <div class="modal-backdrop" id="url-modal" style="display:none">
-  <div class="glass-modal">
+  <div class="vercel-modal">
     <h3>🌐 Connect Web URL</h3>
-    <p>Scrape and index a live web page directly into the Qdrant database index.</p>
+    <p>Index live target content from a web page directly into the Qdrant database index.</p>
     <input type="url" id="modal-url-input" placeholder="https://example.com/article" />
     <div class="modal-actions">
-      <button class="modal-btn cancel" id="close-url-modal">Cancel</button>
-      <button class="modal-btn confirm" id="submit-url-modal">Scrape & Index</button>
+      <button class="vercel-btn-secondary" id="close-url-modal">Cancel</button>
+      <button class="vercel-btn-primary" id="submit-url-modal">Scrape & Index</button>
     </div>
   </div>
 </div>

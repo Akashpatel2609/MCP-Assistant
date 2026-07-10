@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   NEXUS AI — app.js (Hamburger Drawer Navigation)
+   NEXUS AI — app.js (Vercel Style Dashboard Coordinator)
    ═══════════════════════════════════════════════════════════════════════ */
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -13,6 +13,16 @@ const SUGGESTIONS = [
   'Write a Python script to calculate fibonacci(10)'
 ];
 
+const TOOL_META = {
+  web_search:  { label: 'Web Search',  icon: '🔍' },
+  get_weather: { label: 'Weather API', icon: '🌤️' },
+  get_news:    { label: 'RSS News',    icon: '📰' },
+  read_file:   { label: 'File Reader', icon: '📄' },
+  list_files:  { label: 'Files List',  icon: '📂' },
+  db_query:    { label: 'SQL query',   icon: '🗄️' },
+  run_code:    { label: 'Code Runner', icon: '⚙️' }
+};
+
 // ── DOM Nodes ────────────────────────────────────────────────────────
 const messageScroller         = document.getElementById('message-scroller');
 const queryTextInput           = document.getElementById('query-text-input');
@@ -25,25 +35,19 @@ const toastWrapper            = document.getElementById('toast-wrapper');
 const welcomeHeroPanel        = document.getElementById('welcome-hero-panel');
 const dragOverlayPanel        = document.getElementById('drag-overlay-panel');
 const activeUploadChips       = document.getElementById('active-upload-chips');
-const sessionListCont         = document.getElementById('session-list-container');
+const sessionListCont         = document.getElementById('recent-chats-grid');
 const activeSessionTitle      = document.getElementById('active-session-title');
 const systemStatusBadge       = document.getElementById('system-status-indicator');
 
-// Theme Switcher & Menu Panel Triggers
+// Theme Switcher & Add Source Dropdown Menu Trigger
 const themeToggleBtn          = document.getElementById('theme-toggle-btn');
-const consoleAttachTrigger    = document.getElementById('console-attach-trigger');
-const attachPopMenu           = document.getElementById('attach-pop-menu');
+const addSourceDropdownBtn    = document.getElementById('add-source-dropdown-trigger');
+const sourceDropdownMenu      = document.getElementById('source-dropdown-menu');
 
-// Hamburger Drawer selectors
-const openDrawerBtn           = document.getElementById('open-drawer-btn');
-const closeDrawerBtn          = document.getElementById('close-drawer-btn');
-const hamburgerDrawer         = document.getElementById('hamburger-drawer');
-const drawerBackdrop          = document.getElementById('drawer-backdrop');
-
-// Attachment menu items
-const popOptFile              = document.getElementById('pop-opt-file');
-const popOptMedia             = document.getElementById('pop-opt-media');
-const popOptWeb               = document.getElementById('pop-opt-web');
+// Dropdown Action Elements
+const optFileUpload           = document.getElementById('opt-file-upload');
+const optMediaUpload          = document.getElementById('opt-media-upload');
+const optWebScrape            = document.getElementById('opt-web-scrape');
 
 // Web modal elements
 const urlModal                = document.getElementById('url-modal');
@@ -53,7 +57,48 @@ const submitUrlModal          = document.getElementById('submit-url-modal');
 
 const newChatBtn              = document.getElementById('new-chat-btn');
 
+// Navigation links & Panels
+const navChat                 = document.getElementById('nav-chat');
+const navKnowledge            = document.getElementById('nav-knowledge');
+const navSql                  = document.getElementById('nav-sql');
+const navRegistry             = document.getElementById('nav-registry');
+const navAnalytics            = document.getElementById('nav-analytics');
+
+const panelChat               = document.getElementById('panel-chat-view');
+const panelKnowledge          = document.getElementById('panel-knowledge-view');
+const panelSql                = document.getElementById('panel-sql-view');
+const panelRegistry           = document.getElementById('panel-registry-view');
+const panelAnalytics          = document.getElementById('panel-analytics-view');
+
+const documentRegistryList    = document.getElementById('document-registry-list');
+const databaseSchemaContainer  = document.getElementById('database-schema-container');
+const mcpToolsList            = document.getElementById('mcp-tools-list');
+
+// Latency & counts
+const statLatency             = document.getElementById('stat-latency');
+const statTotalMsgs           = document.getElementById('stat-total-msgs');
+const fillRagReads            = document.getElementById('fill-rag-reads');
+const valRagReads             = document.getElementById('val-rag-reads');
+const fillWebScrapes          = document.getElementById('fill-web-scrapes');
+const valWebScrapes           = document.getElementById('val-web-scrapes');
+const fillDbQueries           = document.getElementById('fill-db-queries');
+const valDbQueries            = document.getElementById('val-db-queries');
+
 // ── State ────────────────────────────────────────────────────────────
+let currentSessionId = getUUID();
+let ws = null;
+let currentBubble = null;
+let currentRawText = "";
+let isBusy = false;
+
+// Metrics track
+let ragReadsCount = 0;
+let webScrapesCount = 0;
+let dbQueriesCount = 0;
+let totalMessages = 0;
+let latencySum = 0;
+let latencyCount = 0;
+
 // Safe UUID fallback helper for non-secure / file:/// contexts
 function getUUID() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -64,12 +109,6 @@ function getUUID() {
     return v.toString(16);
   });
 }
-
-let currentSessionId = getUUID();
-let ws = null;
-let currentBubble = null;
-let currentRawText = "";
-let isBusy = false;
 
 // Configure Markdown Parser
 marked.setOptions({
@@ -124,8 +163,17 @@ function handleMessageEvent(payload) {
       break;
 
     case 'tool_use':
-      agentStatusText.textContent = `NEXUS active: ${payload.tool}...`;
+      agentStatusText.textContent = `NEXUS trigger: ${payload.tool}...`;
       updateSystemStatus('connected', `SYS_${payload.tool.toUpperCase()}`);
+      
+      // Update local dashboard usage metrics
+      if (payload.tool === 'db_query') {
+        dbQueriesCount++;
+        updateUsageDashboard();
+      } else if (payload.tool === 'web_search') {
+        webScrapesCount++;
+        updateUsageDashboard();
+      }
       break;
 
     case 'stream_start':
@@ -156,6 +204,8 @@ function handleMessageEvent(payload) {
         traceContainer.className = 'trace-row';
 
         if (payload.rag_triggered) {
+          ragReadsCount++;
+          updateUsageDashboard();
           const chip = document.createElement('span');
           chip.className = 'trace-chip rag';
           chip.innerHTML = `🧬 Qdrant Match`;
@@ -177,6 +227,13 @@ function handleMessageEvent(payload) {
         metaFooter.className = 'meta-footer';
         metaFooter.innerHTML = `<span>Latency: ${payload.response_time_ms}ms</span>`;
         currentBubble.body.appendChild(metaFooter);
+
+        // Update overall latency charts
+        totalMessages++;
+        statTotalMsgs.textContent = totalMessages;
+        latencySum += payload.response_time_ms;
+        latencyCount++;
+        statLatency.textContent = `${Math.round(latencySum / latencyCount)}ms`;
       }
       
       currentBubble = null;
@@ -196,6 +253,18 @@ function handleMessageEvent(payload) {
   }
 }
 
+// Update local metrics display
+function updateUsageDashboard() {
+  valRagReads.textContent = `${ragReadsCount} / 100`;
+  fillRagReads.style.width = `${Math.min(100, (ragReadsCount / 100) * 100)}%`;
+
+  valWebScrapes.textContent = `${webScrapesCount} / 20`;
+  fillWebScrapes.style.width = `${Math.min(100, (webScrapesCount / 20) * 100)}%`;
+
+  valDbQueries.textContent = `${dbQueriesCount} / 150`;
+  fillDbQueries.style.width = `${Math.min(100, (dbQueriesCount / 150) * 100)}%`;
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Session Managers (SQLite persistent loads)
 // ═══════════════════════════════════════════════════════════════════════
@@ -206,18 +275,17 @@ async function loadSessions() {
     sessionListCont.innerHTML = "";
     data.sessions.forEach(sess => {
       const item = document.createElement('div');
-      item.className = `session-item ${sess.id === currentSessionId ? 'active' : ''}`;
+      item.className = `proj-session-item ${sess.id === currentSessionId ? 'active' : ''}`;
       item.innerHTML = `
-        <span class="session-title-text">${escapeHtml(sess.title)}</span>
-        <button class="btn-delete-session" title="Delete Session">×</button>
+        <span class="proj-title">${escapeHtml(sess.title)}</span>
+        <button class="btn-proj-delete" title="Delete Session">×</button>
       `;
       item.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-delete-session')) {
+        if (e.target.classList.contains('btn-proj-delete')) {
           e.stopPropagation();
           deleteSession(sess.id);
         } else {
           switchSession(sess.id, sess.title);
-          closeDrawer();
         }
       });
       sessionListCont.appendChild(item);
@@ -282,7 +350,7 @@ async function restoreMessages(id) {
 
 function startNewSession() {
   currentSessionId = getUUID();
-  activeSessionTitle.textContent = "New Chat";
+  activeSessionTitle.textContent = "Overview";
   initWebSocket(currentSessionId);
   clearScroller();
   showWelcomeHero();
@@ -298,7 +366,7 @@ async function uploadFile(file) {
   
   const progressChip = document.createElement('div');
   progressChip.className = 'upload-chip';
-  progressChip.innerHTML = `🧬 Parsing: ${escapeHtml(file.name)}...`;
+  progressChip.innerHTML = `🧬 Ingesting: ${escapeHtml(file.name)}...`;
   activeUploadChips.appendChild(progressChip);
 
   try {
@@ -309,7 +377,8 @@ async function uploadFile(file) {
     if (data.status === 'success') {
       showToast(`${file.name} successfully indexed to Vector DB!`, 'success');
       const systemBox = createMessageBubble('assistant');
-      systemBox.bubble.innerHTML = `<span style="color:#8b5cf6">🧬 **System Ingest Trace**</span><br>${data.rag_status}`;
+      systemBox.bubble.innerHTML = `<span style="color:#0070f3">🧬 **Vector Database Ingestion**</span><br>${data.rag_status}`;
+      refreshKnowledgeFiles();
     }
   } catch (e) {
     progressChip.remove();
@@ -317,7 +386,7 @@ async function uploadFile(file) {
   }
 }
 
-// Trigger document parser scraping for arbitrary Web links
+// Scrape live URL
 async function scrapeWebUrl(url) {
   urlModal.style.display = 'none';
   
@@ -345,7 +414,8 @@ async function scrapeWebUrl(url) {
     if (data.status === 'success') {
       showToast(`URL indexed to Vector database!`, 'success');
       const systemBox = createMessageBubble('assistant');
-      systemBox.bubble.innerHTML = `<span style="color:#8b5cf6">🧬 **Web URL Scrape Indexed**</span><br>Successfully ingested url: \`${url}\` into memory storage collection.`;
+      systemBox.bubble.innerHTML = `<span style="color:#0070f3">🧬 **Web URL Scrape Indexed**</span><br>Successfully ingested url: \`${url}\` into memory storage collection.`;
+      refreshKnowledgeFiles();
     }
   } catch (e) {
     progressChip.remove();
@@ -353,8 +423,67 @@ async function scrapeWebUrl(url) {
   }
 }
 
+// Refresh Knowledge base dashboard panel
+async function refreshKnowledgeFiles() {
+  try {
+    const res = await fetch('/files');
+    const data = await res.json();
+    documentRegistryList.innerHTML = "";
+    if (data.files.length === 0) {
+      documentRegistryList.innerHTML = `<div class="vercel-card"><span style="color:var(--text-secondary)">No documents uploaded yet.</span></div>`;
+      return;
+    }
+    data.files.forEach(f => {
+      const card = document.createElement('div');
+      card.className = 'doc-item-card';
+      card.innerHTML = `
+        <div class="doc-details">
+          <span class="doc-title">${escapeHtml(f.name)}</span>
+          <span class="doc-size">${(f.size / 1024).toFixed(1)} KB</span>
+        </div>
+      `;
+      documentRegistryList.appendChild(card);
+    });
+  } catch (e) {
+    console.error("Failed to load documents list:", e);
+  }
+}
+
+// Refresh database schema display
+function populateSqlSchema() {
+  databaseSchemaContainer.textContent = `
+-- sqlite_master (Nexus pre-seeded tables schema)
+CREATE TABLE employees (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    salary REAL NOT NULL,
+    hire_date TEXT NOT NULL
+);
+
+CREATE TABLE performance_reviews (
+    review_id INTEGER PRIMARY KEY,
+    employee_id INTEGER REFERENCES employees(id),
+    rating INTEGER NOT NULL,
+    comments TEXT,
+    review_date TEXT
+);
+  `.trim();
+  hljs.highlightElement(databaseSchemaContainer);
+}
+
+// Populate MCP Tools grid cards
+function populateMcpTools() {
+  mcpToolsList.innerHTML = Object.entries(TOOL_META).map(([key, t]) => `
+    <div class="mcp-tool-card">
+      <span class="mcp-tool-name">${t.icon} ${t.label}</span>
+      <span class="mcp-tool-desc">Agent helper executing backend action routing for: ${key}.</span>
+    </div>
+  `).join('');
+}
+
 // ═══════════════════════════════════════════════════════════════════════
-// UI Utilities
+// UI Utilities & Sidebar Page Nav bindings
 // ═══════════════════════════════════════════════════════════════════════
 function createMessageBubble(role) {
   const wrap = document.createElement('div');
@@ -422,7 +551,7 @@ function hideWelcomeHero() {
 
 function autoSizeTextarea() {
   queryTextInput.style.height = 'auto';
-  queryTextInput.style.height = Math.min(queryTextInput.scrollHeight, 160) + 'px';
+  queryTextInput.style.height = Math.min(queryTextInput.scrollHeight, 120) + 'px';
 }
 
 function showToast(msg, type = 'info') {
@@ -455,26 +584,30 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Drawer Navigation handlers
-// ═══════════════════════════════════════════════════════════════════════
-function openDrawer() {
-  hamburgerDrawer.classList.add('active');
-  drawerBackdrop.classList.add('active');
+// Page Nav Switches
+const navLinks = [navChat, navKnowledge, navSql, navRegistry, navAnalytics];
+const panels = [panelChat, panelKnowledge, panelSql, panelRegistry, panelAnalytics];
+
+function switchPanel(activeLink, activePanel) {
+  navLinks.forEach(link => link.classList.remove('active'));
+  panels.forEach(p => p.classList.remove('active'));
+
+  activeLink.classList.add('active');
+  activePanel.classList.add('active');
+
+  // Trigger side panel data reloads
+  if (activePanel === panelKnowledge) refreshKnowledgeFiles();
+  if (activePanel === panelSql) populateSqlSchema();
+  if (activePanel === panelRegistry) populateMcpTools();
 }
 
-function closeDrawer() {
-  hamburgerDrawer.classList.remove('active');
-  drawerBackdrop.classList.remove('active');
-}
+navChat.addEventListener('click', () => switchPanel(navChat, panelChat));
+navKnowledge.addEventListener('click', () => switchPanel(navKnowledge, panelKnowledge));
+navSql.addEventListener('click', () => switchPanel(navSql, panelSql));
+navRegistry.addEventListener('click', () => switchPanel(navRegistry, panelRegistry));
+navAnalytics.addEventListener('click', () => switchPanel(navAnalytics, panelAnalytics));
 
-openDrawerBtn.addEventListener('click', openDrawer);
-closeDrawerBtn.addEventListener('click', closeDrawer);
-drawerBackdrop.addEventListener('click', closeDrawer);
-
-// ═══════════════════════════════════════════════════════════════════════
-// Theme System Framework triggers
-// ═══════════════════════════════════════════════════════════════════════
+// ── Event bindings ────────────────────────────────────────────────────
 themeToggleBtn.addEventListener('click', () => {
   const currentTheme = document.documentElement.getAttribute('data-theme');
   const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -484,40 +617,36 @@ themeToggleBtn.addEventListener('click', () => {
   if (nextTheme === 'light') {
     styleEl.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css";
   } else {
-    styleEl.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css";
+    styleEl.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css";
   }
   showToast(`Swapped to ${nextTheme} visual mode`, 'success');
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// Layout Click & Overlay Event Bindings
-// ═══════════════════════════════════════════════════════════════════════
+// Add source dropdown
+addSourceDropdownBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  sourceDropdownMenu.classList.toggle('active');
+});
 document.addEventListener('click', (e) => {
-  if (!attachPopMenu.contains(e.target) && e.target !== consoleAttachTrigger) {
-    attachPopMenu.classList.remove('active');
+  if (!sourceDropdownMenu.contains(e.target) && e.target !== addSourceDropdownBtn) {
+    sourceDropdownMenu.classList.remove('active');
   }
 });
 
-consoleAttachTrigger.addEventListener('click', (e) => {
-  e.stopPropagation();
-  attachPopMenu.classList.toggle('active');
-});
-
-// Link options menu buttons to triggers
-popOptFile.addEventListener('click', () => {
+optFileUpload.addEventListener('click', () => {
   hiddenFileInput.click();
-  attachPopMenu.classList.remove('active');
+  sourceDropdownMenu.classList.remove('active');
 });
-popOptMedia.addEventListener('click', () => {
+optMediaUpload.addEventListener('click', () => {
   hiddenMediaInput.click();
-  attachPopMenu.classList.remove('active');
+  sourceDropdownMenu.classList.remove('active');
 });
-popOptWeb.addEventListener('click', () => {
+optWebScrape.addEventListener('click', () => {
   urlModal.style.display = 'flex';
-  attachPopMenu.classList.remove('active');
+  sourceDropdownMenu.classList.remove('active');
 });
 
-// Scraper Modal Controls
+// URL modal
 closeUrlModal.addEventListener('click', () => {
   urlModal.style.display = 'none';
   modalUrlInput.value = "";
@@ -536,15 +665,10 @@ hiddenFileInput.addEventListener('change', (e) => {
 });
 hiddenMediaInput.addEventListener('change', (e) => {
   [...e.target.files].forEach(file => {
-    showToast(`Indexing media assets context: ${file.name}`, 'success');
+    showToast(`Ingesting media file context: ${file.name}`, 'success');
     uploadFile(file);
   });
   hiddenMediaInput.value = "";
-});
-
-newChatBtn.addEventListener('click', () => {
-  startNewSession();
-  closeDrawer();
 });
 
 queryTextInput.addEventListener('input', () => {
@@ -560,7 +684,7 @@ queryTextInput.addEventListener('keydown', (e) => {
 submitQueryBtn.addEventListener('click', submitQuery);
 
 // Drag & drop bindings
-const mainArea = document.querySelector('.app-container');
+const mainArea = document.querySelector('.vercel-app-shell');
 mainArea.addEventListener('dragover', (e) => { e.preventDefault(); dragOverlayPanel.classList.add('active'); });
 mainArea.addEventListener('dragleave', (e) => { if (!mainArea.contains(e.relatedTarget)) dragOverlayPanel.classList.remove('active'); });
 mainArea.addEventListener('drop', (e) => {
@@ -572,3 +696,4 @@ mainArea.addEventListener('drop', (e) => {
 // Inits
 buildSuggestions();
 startNewSession();
+updateUsageDashboard();
