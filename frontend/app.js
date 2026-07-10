@@ -1,25 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   NEXUS AI — app.js (Production Interface)
-   Handles WebSockets, RAG updates, Sessions REST lifecycle, and animations.
+   NEXUS AI — app.js (Minimalist Conversational UI)
    ═══════════════════════════════════════════════════════════════════════ */
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE     = `${WS_PROTOCOL}//${location.host}`;
 
-const TOOL_META = {
-  web_search:  { label: 'Web Search',  icon: '🔍', color: '#60a5fa' },
-  get_weather: { label: 'Weather API', icon: '🌤️', color: '#fbbf24' },
-  get_news:    { label: 'RSS News',    icon: '📰', color: '#f472b6' },
-  read_file:   { label: 'Document Parser', icon: '📄', color: '#c084fc' },
-  list_files:  { label: 'Doc Registry',    icon: '📂', color: '#c084fc' },
-  db_query:    { label: 'SQL database',    icon: '🗄️', color: '#34d399' },
-  run_code:    { label: 'Python sandbox',  icon: '⚙️', color: '#fb923c' },
-  none:        { label: 'Agent Core',  icon: '💬', color: '#9ca3af' }
-};
-
 const SUGGESTIONS = [
   'What is the Model Context Protocol?',
-  'Who are the top 3 highest paid employees?',
+  'Who are the top 3 highest paid employees in the company database?',
   'Show me today\'s top news headlines',
   'Write a Python script to calculate fibonacci(10)'
 ];
@@ -37,17 +25,13 @@ const welcomeHeroPanel   = document.getElementById('welcome-hero-panel');
 const dragOverlayPanel   = document.getElementById('drag-overlay-panel');
 const activeUploadChips  = document.getElementById('active-upload-chips');
 const sessionListCont    = document.getElementById('session-list-container');
-const toolsGridCont      = document.getElementById('tools-grid-container');
 const activeSessionTitle = document.getElementById('active-session-title');
 const systemStatusBadge  = document.getElementById('system-status-indicator');
 
-const tabChats           = document.getElementById('tab-chats');
-const tabTools           = document.getElementById('tab-tools');
-const panelSessions      = document.getElementById('panel-sessions');
-const panelTools         = document.getElementById('panel-tools');
+const sidebar            = document.getElementById('sidebar');
+const closeSidebarBtn    = document.getElementById('close-sidebar-btn');
+const openSidebarBtn     = document.getElementById('open-sidebar-btn');
 
-const statMsgs           = document.getElementById('stat-msgs');
-const statLatency        = document.getElementById('stat-latency');
 const newChatBtn         = document.getElementById('new-chat-btn');
 
 // ── State ────────────────────────────────────────────────────────────
@@ -56,7 +40,6 @@ let ws = null;
 let currentBubble = null;
 let currentRawText = "";
 let isBusy = false;
-let averageLatencyArray = [];
 
 // Configure Markdown Parser
 marked.setOptions({
@@ -99,7 +82,7 @@ function initWebSocket(sessionId) {
 function updateSystemStatus(state, text) {
   const dot = systemStatusBadge.querySelector('.status-dot');
   dot.className = `status-dot ${state === 'connected' ? 'green' : 'red'}`;
-  systemStatusBadge.lastChild.textContent = ` ${text}`;
+  systemStatusBadge.querySelector('.status-text').textContent = text;
 }
 
 function handleMessageEvent(payload) {
@@ -110,8 +93,7 @@ function handleMessageEvent(payload) {
       break;
 
     case 'tool_use':
-      activateToolHighlight(payload.tool);
-      agentStatusText.textContent = `Running ${TOOL_META[payload.tool]?.label || payload.tool}...`;
+      agentStatusText.textContent = `Nexus triggered: ${payload.tool}...`;
       break;
 
     case 'stream_start':
@@ -136,22 +118,21 @@ function handleMessageEvent(payload) {
         currentBubble.bubble.innerHTML = marked.parse(currentRawText);
         hljs.highlightAll();
         
-        // Append RAG and MCP traces
+        // Render simple citation / activity chips below response
         const traceContainer = document.createElement('div');
         traceContainer.className = 'trace-row';
 
         if (payload.rag_triggered) {
           const chip = document.createElement('span');
           chip.className = 'trace-chip rag';
-          chip.innerHTML = `🧬 Qdrant Vector Match`;
+          chip.innerHTML = `🧬 Qdrant Match`;
           traceContainer.appendChild(chip);
         }
 
         payload.tools_used.forEach(tool => {
-          const meta = TOOL_META[tool] || { label: tool, icon: '🔧' };
           const chip = document.createElement('span');
           chip.className = 'trace-chip mcp';
-          chip.innerHTML = `${meta.icon} ${meta.label}`;
+          chip.innerHTML = `🔧 ${tool}`;
           traceContainer.appendChild(chip);
         });
 
@@ -159,21 +140,16 @@ function handleMessageEvent(payload) {
           currentBubble.body.appendChild(traceContainer);
         }
 
-        // Latency and stats footers
         const metaFooter = document.createElement('div');
         metaFooter.className = 'meta-footer';
         metaFooter.innerHTML = `<span>Latency: ${payload.response_time_ms}ms</span>`;
         currentBubble.body.appendChild(metaFooter);
-
-        averageLatencyArray.push(payload.response_time_ms);
-        calcLatency();
       }
       
       currentBubble = null;
       currentRawText = "";
-      deactivateAllTools();
       setInputState(false);
-      loadSessions(); // refresh titles auto-generated in backend
+      loadSessions(); 
       break;
 
     case 'error':
@@ -254,10 +230,9 @@ async function restoreMessages(id) {
       const traceContainer = document.createElement('div');
       traceContainer.className = 'trace-row';
       msg.tools_used.forEach(tool => {
-        const meta = TOOL_META[tool] || { label: tool, icon: '🔧' };
         const chip = document.createElement('span');
         chip.className = 'trace-chip mcp';
-        chip.innerHTML = `${meta.icon} ${meta.label}`;
+        chip.innerHTML = `🔧 ${tool}`;
         traceContainer.appendChild(chip);
       });
       if (traceContainer.children.length > 0) {
@@ -279,7 +254,7 @@ function startNewSession() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Document Drop Zone and Parsing Uploads
+// File Upload Ingestion
 // ═══════════════════════════════════════════════════════════════════════
 async function uploadFile(file) {
   const fd = new FormData();
@@ -287,7 +262,7 @@ async function uploadFile(file) {
   
   const progressChip = document.createElement('div');
   progressChip.className = 'upload-chip';
-  progressChip.innerHTML = `🧬 Processing: ${escapeHtml(file.name)}...`;
+  progressChip.innerHTML = `🧬 Indexing: ${escapeHtml(file.name)}...`;
   activeUploadChips.appendChild(progressChip);
 
   try {
@@ -296,10 +271,9 @@ async function uploadFile(file) {
     progressChip.remove();
     
     if (data.status === 'success') {
-      showToast(`${file.name} successfully indexed to Vector DB!`, 'success');
-      // Append temporary system ingestion trace update to user arena
+      showToast(`${file.name} indexed successfully!`, 'success');
       const systemBox = createMessageBubble('assistant');
-      systemBox.bubble.innerHTML = `<span style="color:#60a5fa">🧬 **Document Indexed**</span><br>${data.rag_status}`;
+      systemBox.bubble.innerHTML = `<span style="color:#60a5fa">🧬 **Document Ingestion**</span><br>${data.rag_status}`;
     }
   } catch (e) {
     progressChip.remove();
@@ -308,7 +282,7 @@ async function uploadFile(file) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Utilities and DOM Rendering
+// Layout Utility Controls
 // ═══════════════════════════════════════════════════════════════════════
 function createMessageBubble(role) {
   const wrap = document.createElement('div');
@@ -342,7 +316,7 @@ function submitQuery() {
   const userBubble = createMessageBubble('user');
   userBubble.bubble.textContent = text;
   
-  ws.send(jsonPayload({ message: text }));
+  ws.send(JSON.stringify({ message: text }));
   queryTextInput.value = "";
   autoSizeTextarea();
   setInputState(true);
@@ -390,42 +364,6 @@ function showToast(msg, type = 'info') {
   }, 4000);
 }
 
-function calcLatency() {
-  if (averageLatencyArray.length === 0) return;
-  const avg = averageLatencyArray.reduce((a, b) => a + b, 0) / averageLatencyArray.length;
-  statLatency.textContent = `${Math.round(avg)}ms`;
-}
-
-function activateToolHighlight(tool) {
-  deactivateAllTools();
-  const card = document.getElementById(`tc-${tool}`);
-  if (card) {
-    card.classList.add('active');
-    card.querySelector('.tool-status').textContent = 'running';
-  }
-}
-
-function deactivateAllTools() {
-  document.querySelectorAll('.tool-card').forEach(c => {
-    c.classList.remove('active');
-    c.querySelector('.tool-status').textContent = 'idle';
-  });
-}
-
-function buildToolsRegistry() {
-  toolsGridCont.innerHTML = Object.entries(TOOL_META)
-    .filter(([k]) => k !== 'none')
-    .map(([key, t]) => `
-      <div class="tool-card" id="tc-${key}">
-        <span class="tool-icon">${t.icon}</span>
-        <div class="tool-info">
-          <span class="tool-name">${t.label}</span>
-          <span class="tool-status">idle</span>
-        </div>
-      </div>
-    `).join('');
-}
-
 function buildSuggestions() {
   const container = document.getElementById('suggestion-pills-container');
   container.innerHTML = SUGGESTIONS.map(s => `
@@ -442,15 +380,6 @@ function buildSuggestions() {
 }
 
 // ── Event bindings ────────────────────────────────────────────────────
-tabChats.addEventListener('click', () => {
-  tabChats.classList.add('active'); tabTools.classList.remove('active');
-  panelSessions.style.display = 'block'; panelTools.style.display = 'none';
-});
-tabTools.addEventListener('click', () => {
-  tabTools.classList.add('active'); tabChats.classList.remove('active');
-  panelTools.style.display = 'block'; panelSessions.style.display = 'none';
-});
-
 newChatBtn.addEventListener('click', startNewSession);
 attachDocumentBtn.addEventListener('click', () => hiddenFileInput.click());
 hiddenFileInput.addEventListener('change', (e) => {
@@ -470,6 +399,10 @@ queryTextInput.addEventListener('keydown', (e) => {
 });
 submitQueryBtn.addEventListener('click', submitQuery);
 
+// Sidebar Drawers
+closeSidebarBtn.addEventListener('click', () => sidebar.classList.add('collapsed'));
+openSidebarBtn.addEventListener('click', () => sidebar.classList.remove('collapsed'));
+
 // Drag & drop bindings
 const mainArea = document.querySelector('.app');
 mainArea.addEventListener('dragover', (e) => { e.preventDefault(); dragOverlayPanel.classList.add('active'); });
@@ -480,13 +413,11 @@ mainArea.addEventListener('drop', (e) => {
   [...e.dataTransfer.files].forEach(uploadFile);
 });
 
-// JSON and string parsers
+// JSON and string helpers
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-function jsonPayload(obj) { return JSON.stringify(obj); }
 
 // Initialization
-buildToolsRegistry();
 buildSuggestions();
 startNewSession();
