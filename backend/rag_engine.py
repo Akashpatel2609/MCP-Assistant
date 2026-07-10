@@ -32,7 +32,10 @@ class RAGEngine:
         self.collection_name = "nexus_rag"
         
         # Configure NVIDIA Embeddings (OpenAI compatible API)
-        self.nvidia_api_key = os.getenv("NVIDIA_API_KEY")
+        api_key = os.getenv("NVIDIA_API_KEY")
+        if not api_key:
+            api_key = "mock_key_not_configured"
+        self.nvidia_api_key = api_key
         self.client = AsyncOpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=self.nvidia_api_key

@@ -15,9 +15,12 @@ class NVIDIAClient:
     """Async wrapper around the NVIDIA NIM inference API."""
 
     def __init__(self):
+        api_key = os.getenv("NVIDIA_API_KEY")
+        if not api_key:
+            api_key = "mock_key_not_configured"
         self.client = AsyncOpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
-            api_key=os.getenv("NVIDIA_API_KEY"),
+            api_key=api_key,
         )
         self.model = os.getenv("MODEL", "meta/llama-3.1-70b-instruct")
 
