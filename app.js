@@ -248,7 +248,7 @@ function handleMessageEvent(payload) {
       currentRawText = "";
       setInputState(false);
       loadSessions(); 
-      updateSystemStatus('connected', 'SYS_IDLE');
+      updateSystemStatus('connected', 'SYS_SERVERLESS');
       break;
 
     case 'error':
@@ -256,7 +256,7 @@ function handleMessageEvent(payload) {
       isBusy = false;
       setInputState(false);
       showToast(`Error: ${payload.message}`, 'error');
-      updateSystemStatus('disconnected', 'SYS_FAIL');
+      updateSystemStatus('connected', 'SYS_SERVERLESS');
       break;
   }
 }
@@ -736,6 +736,8 @@ queryTextInput.addEventListener('keydown', (e) => {
   }
 });
 submitQueryBtn.addEventListener('click', submitQuery);
+
+newChatBtn.addEventListener('click', startNewSession);
 
 // Drag & drop bindings
 const mainArea = document.querySelector('.vercel-app-shell');

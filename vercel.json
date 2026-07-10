@@ -2,14 +2,6 @@
   "version": 2,
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "frontend/$1"
-    },
-    {
-      "src": "/(assets|images)/(.*)",
-      "dest": "frontend/$1/$2"
-    },
-    {
       "src": "/(sessions|upload|files|health|ws|chat)/(.*)",
       "dest": "api/index.py"
     },
@@ -19,7 +11,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "frontend/index.html"
+      "dest": "/$1"
     }
   ]
 }

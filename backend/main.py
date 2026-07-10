@@ -27,7 +27,7 @@ class MessagePayload(BaseModel):
 load_dotenv()
 
 BASE_DIR     = Path(__file__).parent
-FRONTEND_DIR = BASE_DIR.parent / "frontend"
+FRONTEND_DIR = BASE_DIR.parent
 
 if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
     UPLOAD_DIR = Path("/tmp/uploads")
