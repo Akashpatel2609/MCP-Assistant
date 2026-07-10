@@ -20,11 +20,11 @@
       "dest": "frontend/$1/$2"
     },
     {
-      "src": "/(sessions|upload|files|health|ws)/(.*)",
+      "src": "/(sessions|upload|files|health|ws|chat)/(.*)",
       "dest": "api/index.py"
     },
     {
-      "src": "/(sessions|upload|files|health|ws)",
+      "src": "/(sessions|upload|files|health|ws|chat)",
       "dest": "api/index.py"
     },
     {
