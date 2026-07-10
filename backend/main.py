@@ -150,14 +150,13 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             start_time = time.time()
             await send({"type": "thinking", "text": "Analyzing query and retrieving context…"})
 
-            # ── 2. Run RAG semantic document retrieval ────────────────────
-            rag_context = await rag_engine.retrieve(user_message, top_k=3)
-
-            # ── 3. MCP routing + tool execution ──────────────────────────
-            await send({"type": "thinking", "text": "Routing your request through MCP…"})
-            routing = await router.route(
-                user_message, history_db.get_context_window(session_id)
-            )
+            # ── 2 & 3. Run RAG context retrieval and MCP Tool routing concurrently ────────────────────
+            await send({"type": "thinking", "text": "Routing request and matching memory context…"})
+            
+            rag_task = asyncio.create_task(rag_engine.retrieve(user_message, top_k=3))
+            routing_task = asyncio.create_task(router.route(user_message, history_db.get_context_window(session_id)))
+            
+            rag_context, routing = await asyncio.gather(rag_task, routing_task)
             tool_results = routing["tool_results"]
 
             # ── 4. Stream tool-use events to client ───────────────────────
@@ -246,14 +245,13 @@ async def http_stream_chat(session_id: str, payload: MessagePayload):
             start_time = time.time()
             yield json.dumps({"type": "thinking", "text": "Analyzing query and retrieving context…"}) + "\n"
 
-            # 1. RAG search
-            rag_context = await rag_engine.retrieve(user_message, top_k=3)
-
-            # 2. MCP Tool Routing
-            yield json.dumps({"type": "thinking", "text": "Routing your request through MCP…"}) + "\n"
-            routing = await router.route(
-                user_message, history_db.get_context_window(session_id)
-            )
+            # 1 & 2. Run RAG context retrieval and MCP Tool routing concurrently
+            yield json.dumps({"type": "thinking", "text": "Routing request and matching memory context…"}) + "\n"
+            
+            rag_task = asyncio.create_task(rag_engine.retrieve(user_message, top_k=3))
+            routing_task = asyncio.create_task(router.route(user_message, history_db.get_context_window(session_id)))
+            
+            rag_context, routing = await asyncio.gather(rag_task, routing_task)
             tool_results = routing["tool_results"]
 
             # 3. Tool Event Notification

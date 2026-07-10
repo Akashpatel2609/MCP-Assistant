@@ -14,7 +14,7 @@ load_dotenv()
 class NVIDIAClient:
     """Async wrapper around the NVIDIA NIM inference API."""
 
-    def __init__(self):
+    def __init__(self, model: str = None):
         api_key = os.getenv("NVIDIA_API_KEY")
         if not api_key:
             api_key = "mock_key_not_configured"
@@ -22,7 +22,7 @@ class NVIDIAClient:
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=api_key,
         )
-        self.model = os.getenv("MODEL", "meta/llama-3.1-70b-instruct")
+        self.model = model or os.getenv("MODEL", "meta/llama-3.1-70b-instruct")
 
     async def chat(self, messages: list, temperature: float = 0.7, max_tokens: int = 2048):
         """Single-shot completion (used by the MCP router for tool-selection)."""

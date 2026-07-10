@@ -17,45 +17,25 @@ from agents.weather import WeatherAgent
 
 
 # ── Prompt sent to the LLM purely for tool-selection ────────────────────────
-_TOOL_SELECTION_SYSTEM = """You are an MCP (Model Context Protocol) Router.
-Your ONLY job is to read the user's message and decide which tools to call.
+_TOOL_SELECTION_SYSTEM = """You decide which tools to call for the user's message.
+TOOLS:
+- web_search: {"query": "search terms"}
+- get_weather: {"city": "CityName"}
+- get_news: {}
+- read_file: {"filename": "name.ext"}
+- list_files: {}
+- db_query: {"sql": "SELECT ..."} (schemas: employees[id,name,department,salary,hire_date,email], products[id,name,category,price,stock], sales[id,product_id,employee_id,quantity,sale_date,total])
+- run_code: {"code": "python code"}
+- none: {}
 
-AVAILABLE TOOLS:
-1. web_search     — params: {"query": "search terms"}
-2. get_weather    — params: {"city": "CityName"}
-3. get_news       — params: {}
-4. read_file      — params: {"filename": "name.ext"}
-5. list_files     — params: {}
-6. db_query       — params: {"sql": "SELECT ..."}
-7. run_code       — params: {"code": "python code here"}
-8. none           — params: {}  (use when no tool is needed)
-
-DATABASE SCHEMA (use for db_query):
-- employees: id, name, department, salary, hire_date, email
-- products:  id, name, category, price, stock
-- sales:     id, product_id, employee_id, quantity, sale_date, total
-
-RULES:
-- Respond ONLY with a valid JSON object — no prose, no markdown fences.
-- You may include multiple tools in the array.
-- For db_query generate a complete, safe SELECT statement.
-- For run_code write complete, runnable Python code.
-
-RESPONSE FORMAT (strict JSON):
-{
-  "tools": [
-    {"tool": "tool_name", "params": {"key": "value"}},
-    ...
-  ],
-  "reasoning": "one-line explanation"
-}"""
+Respond ONLY with raw JSON: {"tools": [{"tool": "tool_name", "params": {}}], "reasoning": "why"}"""
 
 
 class MCPRouter:
     """Routes user messages to the correct tool agents."""
 
     def __init__(self):
-        self.llm          = NVIDIAClient()
+        self.llm          = NVIDIAClient(model="meta/llama-3.1-8b-instruct")
         self.web_search   = WebSearchAgent()
         self.file_handler = FileHandlerAgent()
         self.db_query     = DBQueryAgent()
