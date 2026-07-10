@@ -54,7 +54,18 @@ const submitUrlModal          = document.getElementById('submit-url-modal');
 const newChatBtn              = document.getElementById('new-chat-btn');
 
 // ── State ────────────────────────────────────────────────────────────
-let currentSessionId = crypto.randomUUID();
+// Safe UUID fallback helper for non-secure / file:/// contexts
+function getUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+let currentSessionId = getUUID();
 let ws = null;
 let currentBubble = null;
 let currentRawText = "";
@@ -270,7 +281,7 @@ async function restoreMessages(id) {
 }
 
 function startNewSession() {
-  currentSessionId = crypto.randomUUID();
+  currentSessionId = getUUID();
   activeSessionTitle.textContent = "New Chat";
   initWebSocket(currentSessionId);
   clearScroller();
