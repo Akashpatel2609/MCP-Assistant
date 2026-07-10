@@ -12,13 +12,17 @@ import aiofiles
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from history_manager import HistoryManager
 from rag_engine import RAGEngine
 from llm_client import NVIDIAClient
 from mcp_router import MCPRouter
+
+class MessagePayload(BaseModel):
+    message: str
 
 load_dotenv()
 
@@ -224,3 +228,89 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             await send({"type": "error", "message": str(exc)})
         except Exception:
             pass
+
+
+@app.post("/chat/stream/{session_id}")
+async def http_stream_chat(session_id: str, payload: MessagePayload):
+    history_db.ensure_session(session_id)
+    user_message = payload.message.strip()
+
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Empty query message")
+
+    history_db.add_message(session_id, "user", user_message)
+
+    async def event_generator():
+        try:
+            start_time = time.time()
+            yield json.dumps({"type": "thinking", "text": "Analyzing query and retrieving context…"}) + "\n"
+
+            # 1. RAG search
+            rag_context = await rag_engine.retrieve(user_message, top_k=3)
+
+            # 2. MCP Tool Routing
+            yield json.dumps({"type": "thinking", "text": "Routing your request through MCP…"}) + "\n"
+            routing = await router.route(
+                user_message, history_db.get_context_window(session_id)
+            )
+            tool_results = routing["tool_results"]
+
+            # 3. Tool Event Notification
+            for tr in tool_results:
+                if tr["tool"] != "none":
+                    yield json.dumps({
+                        "type":   "tool_use",
+                        "tool":   tr["tool"],
+                        "params": tr["params"],
+                        "status": "done",
+                    }) + "\n"
+
+            # 4. Prompt Assembly
+            llm_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+            for msg in history_db.get_context_window(session_id)[:-1]:
+                llm_messages.append(msg)
+
+            augmented_content = user_message
+            if rag_context:
+                augmented_content += f"\n\n**[Document Context Chunks (Qdrant + NIM Embeddings)]**\n{rag_context}"
+            
+            tool_context_blocks = [
+                f"\n\n**[{tr['tool']} result]**\n{tr['result']}"
+                for tr in tool_results
+                if tr["tool"] != "none" and tr["result"]
+            ]
+            augmented_content += "".join(tool_context_blocks)
+            llm_messages.append({"role": "user", "content": augmented_content})
+
+            # 5. Token Stream
+            yield json.dumps({"type": "stream_start"}) + "\n"
+            full_response = ""
+            async for token in llm_client.stream_chat(llm_messages):
+                full_response += token
+                yield json.dumps({"type": "stream_token", "content": token}) + "\n"
+
+            # 6. Response Completion End Message
+            response_time_ms = round((time.time() - start_time) * 1000)
+            active_tools = [tr["tool"] for tr in tool_results if tr["tool"] != "none"]
+
+            yield json.dumps({
+                "type":             "stream_end",
+                "tools_used":       active_tools,
+                "tool_results":     [{"tool": tr["tool"], "result": tr["result"]} for tr in tool_results if tr["tool"] != "none"],
+                "response_time_ms": response_time_ms,
+                "rag_triggered":    bool(rag_context),
+                "stats":            {
+                    "message_count":   history_db.get_message_count(session_id),
+                    "tool_call_count": len(active_tools),
+                    "response_time":   f"{response_time_ms/1000:.2f}s"
+                }
+            }) + "\n"
+
+            # Persist assistant turn
+            history_db.add_message(session_id, "assistant", full_response, tools_used=active_tools)
+
+        except Exception as exc:
+            yield json.dumps({"type": "error", "message": str(exc)}) + "\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+

@@ -129,24 +129,31 @@ function initWebSocket(sessionId) {
   if (ws) {
     ws.close();
   }
-  ws = new WebSocket(`${WS_BASE}/ws/${sessionId}`);
+  
+  // Attempt to build WebSocket connection
+  try {
+    ws = new WebSocket(`${WS_BASE}/ws/${sessionId}`);
 
-  ws.onopen = () => {
-    updateSystemStatus('connected', 'SYS_IDLE');
-    submitQueryBtn.disabled = !queryTextInput.value.trim() || isBusy;
-  };
+    ws.onopen = () => {
+      updateSystemStatus('connected', 'SYS_IDLE');
+      submitQueryBtn.disabled = !queryTextInput.value.trim() || isBusy;
+    };
 
-  ws.onclose = () => {
-    updateSystemStatus('disconnected', 'SYS_RECONNECT');
-    submitQueryBtn.disabled = true;
-    setTimeout(() => initWebSocket(sessionId), 3000);
-  };
+    ws.onclose = () => {
+      // In Vercel serverless mode, socket is closed. We update status label to SYS_SERVERLESS
+      updateSystemStatus('connected', 'SYS_SERVERLESS');
+      submitQueryBtn.disabled = !queryTextInput.value.trim() || isBusy;
+    };
 
-  ws.onerror = () => {
-    updateSystemStatus('disconnected', 'SYS_ERROR');
-  };
+    ws.onerror = () => {
+      updateSystemStatus('connected', 'SYS_SERVERLESS');
+      submitQueryBtn.disabled = !queryTextInput.value.trim() || isBusy;
+    };
 
-  ws.onmessage = (event) => handleMessageEvent(JSON.parse(event.data));
+    ws.onmessage = (event) => handleMessageEvent(JSON.parse(event.data));
+  } catch (e) {
+    updateSystemStatus('connected', 'SYS_SERVERLESS');
+  }
 }
 
 function updateSystemStatus(state, text) {
@@ -510,18 +517,64 @@ function createMessageBubble(role) {
   return { bubble, body };
 }
 
-function submitQuery() {
+async function submitQuery() {
   const text = queryTextInput.value.trim();
-  if (!text || isBusy || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!text || isBusy) return;
   
   hideWelcomeHero();
   const userBubble = createMessageBubble('user');
   userBubble.bubble.textContent = text;
   
-  ws.send(JSON.stringify({ message: text }));
   queryTextInput.value = "";
   autoSizeTextarea();
   setInputState(true);
+
+  // Fallback to HTTP POST streaming if WebSocket is not open
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    try {
+      const res = await fetch(`${API_BASE}/chat/stream/${currentSessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP Error Status: ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        
+        // Save the last incomplete chunk to buffer
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              handleMessageEvent(JSON.parse(line));
+            } catch (err) {
+              console.error("Failed to parse stream line JSON:", err);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      showToast(`Streaming failed: ${e.message}`, 'error');
+      setInputState(false);
+      updateSystemStatus('connected', 'SYS_SERVERLESS');
+    }
+  } else {
+    // Send over standard WebSocket connection
+    ws.send(JSON.stringify({ message: text }));
+  }
 }
 
 function setInputState(busy) {
