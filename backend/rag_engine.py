@@ -18,7 +18,6 @@ from openai import AsyncOpenAI
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from rank_bm25 import BM25Okapi
-from sentence_transformers import CrossEncoder
 
 # Document Parsers
 from pypdf import PdfReader
@@ -38,12 +37,7 @@ class RAGEngine:
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=self.nvidia_api_key
         )
-        # Using state-of-the-art retrieval embedding model from NVIDIA NIM
         self.embedding_model = "nvidia/nv-embedqa-e5-v5"
-        
-        # Local Cross-Encoder for high-accuracy reranking (Re-scores top-20 candidates down to top-5)
-        # This small model (approx. 40MB) fits in CPU RAM instantly and operates extremely fast.
-        self.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
         
         # In-memory store for Hybrid BM25 keyword searching alongside vector searching
         self.chunks: List[str] = []
@@ -179,26 +173,15 @@ class RAGEngine:
                             "score": float(bm25_scores[idx] / 10.0) # Scale down BM25 score
                         })
 
-        if not candidate_chunks:
-            return ""
-
-        # 3. Cross-Encoder Reranking
-        # Scores the semantic match quality of query + candidate chunk directly
-        pairs = [[query, item["text"]] for item in candidate_chunks]
-        rerank_scores = self.reranker.predict(pairs)
-
-        for i, score in enumerate(rerank_scores):
-            candidate_chunks[i]["rerank_score"] = float(score)
-
-        # Sort candidate chunks by their new high-accuracy rerank scores
-        candidate_chunks = sorted(candidate_chunks, key=lambda x: x["rerank_score"], reverse=True)
+        # Sort candidates by retrieval score
+        candidate_chunks = sorted(candidate_chunks, key=lambda x: x["score"], reverse=True)
         final_results = candidate_chunks[:top_k]
 
-        # 4. Format context block for LLM
+        # 3. Format context block for LLM
         context_parts = []
         for i, item in enumerate(final_results, 1):
             context_parts.append(
-                f"📎 **Context Chunk {i}** (Source: `{item['source']}`, Re-rank Score: `{item['rerank_score']:.4f}`):\n"
+                f"📎 **Context Chunk {i}** (Source: `{item['source']}`, Relevance Score: `{item['score']:.4f}`):\n"
                 f"{item['text']}\n"
             )
 
