@@ -5,6 +5,7 @@
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_HOST     = location.protocol === 'file:' ? 'localhost:8000' : location.host;
 const WS_BASE     = `${WS_PROTOCOL}//${WS_HOST}`;
+const API_BASE    = location.protocol === 'file:' ? 'http://localhost:8000' : '';
 
 const SUGGESTIONS = [
   'What is the Model Context Protocol?',
@@ -270,7 +271,7 @@ function updateUsageDashboard() {
 // ═══════════════════════════════════════════════════════════════════════
 async function loadSessions() {
   try {
-    const res = await fetch('/sessions');
+    const res = await fetch(`${API_BASE}/sessions`);
     const data = await res.json();
     sessionListCont.innerHTML = "";
     data.sessions.forEach(sess => {
@@ -296,7 +297,7 @@ async function loadSessions() {
 }
 
 async function deleteSession(id) {
-  await fetch(`/sessions/${id}`, { method: 'DELETE' });
+  await fetch(`${API_BASE}/sessions/${id}`, { method: 'DELETE' });
   if (id === currentSessionId) {
     startNewSession();
   } else {
@@ -313,7 +314,7 @@ function switchSession(id, title) {
 }
 
 async function restoreMessages(id) {
-  const res = await fetch(`/sessions/${id}/messages`);
+  const res = await fetch(`${API_BASE}/sessions/${id}/messages`);
   const data = await res.json();
   clearScroller();
   
@@ -370,7 +371,7 @@ async function uploadFile(file) {
   activeUploadChips.appendChild(progressChip);
 
   try {
-    const res = await fetch('/upload', { method: 'POST', body: fd });
+    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: fd });
     const data = await res.json();
     progressChip.remove();
     
@@ -398,7 +399,7 @@ async function scrapeWebUrl(url) {
   try {
     const safeName = url.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40) + ".txt";
     
-    const searchRes = await fetch('/upload', {
+    const searchRes = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
       body: (() => {
         const payload = new FormData();
@@ -426,7 +427,7 @@ async function scrapeWebUrl(url) {
 // Refresh Knowledge base dashboard panel
 async function refreshKnowledgeFiles() {
   try {
-    const res = await fetch('/files');
+    const res = await fetch(`${API_BASE}/files`);
     const data = await res.json();
     documentRegistryList.innerHTML = "";
     if (data.files.length === 0) {
