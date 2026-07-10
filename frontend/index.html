@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP AI Assistant — Powered by Llama 3.1</title>
+  <meta name="description" content="An MCP-powered AI assistant with web search, file handling, database queries, code execution, weather, and news — all in one sleek interface." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Markdown + Syntax Highlighting -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ─── ANIMATED BACKGROUND ──────────────────────────────────────────── -->
+<div class="bg-mesh" aria-hidden="true">
+  <div class="mesh-orb mesh-orb-1"></div>
+  <div class="mesh-orb mesh-orb-2"></div>
+  <div class="mesh-orb mesh-orb-3"></div>
+</div>
+
+<!-- ─── APP SHELL ─────────────────────────────────────────────────────── -->
+<div class="app" id="app">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Tools sidebar">
+
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="logo-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="13" stroke="url(#lg1)" stroke-width="2"/>
+          <path d="M9 14h10M14 9v10" stroke="url(#lg2)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="14" cy="14" r="3" fill="url(#lg1)"/>
+          <defs>
+            <linearGradient id="lg1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1"/><stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient>
+            <linearGradient id="lg2" x1="9" y1="9" x2="19" y2="19" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1"/><stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-title">MCP Assistant</span>
+        <span class="logo-subtitle">Llama 3.1 · 70B</span>
+      </div>
+    </div>
+
+    <!-- Connection badge -->
+    <div class="conn-badge" id="conn-badge">
+      <span class="conn-dot" id="conn-dot"></span>
+      <span id="conn-label">Connecting…</span>
+    </div>
+
+    <!-- ── Tools Panel ─────────────────────────────────────────────────── -->
+    <section class="sidebar-section">
+      <h2 class="section-title">Tool Agents</h2>
+      <div class="tools-grid" id="tools-grid" aria-label="Available tool agents">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- ── Session Stats ───────────────────────────────────────────────── -->
+    <section class="sidebar-section">
+      <h2 class="section-title">Session</h2>
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-val" id="stat-msgs">0</span>
+          <span class="stat-lbl">Messages</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-val" id="stat-tools">0</span>
+          <span class="stat-lbl">Tool Calls</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Quick Prompts ───────────────────────────────────────────────── -->
+    <section class="sidebar-section">
+      <h2 class="section-title">Quick Prompts</h2>
+      <div class="quick-prompts" id="quick-prompts" aria-label="Quick prompt suggestions">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- Sidebar footer -->
+    <div class="sidebar-footer">
+      <button class="btn-clear-chat" id="clear-chat-btn" title="Clear conversation">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+        </svg>
+        Clear Chat
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CHAT AREA ─────────────────────────────────────────────────── -->
+  <main class="chat-area" role="main">
+
+    <!-- Chat header -->
+    <header class="chat-header">
+      <button class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="header-center">
+        <h1 class="header-title">AI Assistant</h1>
+        <p class="header-activity" id="header-activity">Ready to help</p>
+      </div>
+
+      <div class="header-model-badge" aria-label="Active model">
+        🦙 Llama 3.1 · NVIDIA NIM
+      </div>
+    </header>
+
+    <!-- Messages -->
+    <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Conversation">
+
+      <!-- Welcome card -->
+      <div class="welcome-card" id="welcome-card" role="article">
+        <div class="welcome-glow" aria-hidden="true"></div>
+        <div class="welcome-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="23" stroke="url(#wlg)" stroke-width="2"/>
+            <circle cx="24" cy="24" r="5" fill="url(#wlg)"/>
+            <path d="M24 8v4M24 36v4M8 24h4M36 24h4M13 13l2.8 2.8M32.2 32.2L35 35M35 13l-2.8 2.8M15.8 32.2L13 35" stroke="url(#wlg)" stroke-width="2" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="wlg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6366f1"/><stop offset="1" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h2 class="welcome-title">Hello! I'm your MCP AI Assistant</h2>
+        <p class="welcome-subtitle">I can search the web, read files, query databases, run Python code, check the weather, and fetch the latest news — all powered by Llama 3.1 70B.</p>
+        <div class="welcome-caps" aria-label="Capabilities">
+          <span class="cap-chip" data-tool="web_search">🔍 Web Search</span>
+          <span class="cap-chip" data-tool="get_weather">🌤️ Weather</span>
+          <span class="cap-chip" data-tool="read_file">📄 Files</span>
+          <span class="cap-chip" data-tool="db_query">🗄️ Database</span>
+          <span class="cap-chip" data-tool="run_code">⚙️ Code</span>
+          <span class="cap-chip" data-tool="get_news">📰 News</span>
+        </div>
+      </div>
+
+    </div><!-- /messages -->
+
+    <!-- ── Input Area ───────────────────────────────────────────────────── -->
+    <div class="input-zone">
+
+      <!-- Drag-and-drop overlay -->
+      <div class="drop-overlay" id="drop-overlay" aria-hidden="true">
+        <div class="drop-inner">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p>Drop your file here</p>
+        </div>
+      </div>
+
+      <!-- File chips (uploaded files shown here) -->
+      <div class="file-chips" id="file-chips" aria-label="Uploaded files"></div>
+
+      <!-- Thinking indicator -->
+      <div class="thinking-bar" id="thinking-bar" style="display:none" aria-live="polite">
+        <span class="think-dot"></span>
+        <span class="think-dot"></span>
+        <span class="think-dot"></span>
+        <span id="thinking-text">Thinking…</span>
+      </div>
+
+      <!-- Input row -->
+      <div class="input-row">
+        <button class="btn-attach" id="attach-btn" title="Upload file (txt, csv, py, json, md)" aria-label="Attach file">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+
+        <div class="textarea-wrap">
+          <textarea
+            id="msg-input"
+            placeholder="Ask me anything — search, code, weather, database queries…"
+            rows="1"
+            aria-label="Message input"
+            autocomplete="off"
+            spellcheck="true"
+          ></textarea>
+        </div>
+
+        <button class="btn-send" id="send-btn" aria-label="Send message" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <p class="input-hint">
+        Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line
+      </p>
+    </div><!-- /input-zone -->
+
+  </main><!-- /chat-area -->
+</div><!-- /app -->
+
+<!-- Hidden file input -->
+<input type="file" id="file-input" style="display:none" accept=".txt,.csv,.py,.json,.md,.js,.ts,.html,.css" multiple aria-hidden="true" />
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container" aria-live="assertive"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
