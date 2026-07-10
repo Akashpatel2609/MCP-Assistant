@@ -13,7 +13,8 @@ from typing import Dict, List, Optional
 
 import os
 
-if os.getenv("VERCEL"):
+# Detect Vercel serverless environment (either VERCEL env or AWS Lambda environment)
+if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
     DB_PATH = Path("/tmp/nexus_history.db")
 else:
     DB_PATH = Path("data/nexus_history.db")

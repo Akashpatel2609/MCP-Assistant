@@ -29,7 +29,7 @@ load_dotenv()
 BASE_DIR     = Path(__file__).parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 
-if os.getenv("VERCEL"):
+if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task"):
     UPLOAD_DIR = Path("/tmp/uploads")
 else:
     UPLOAD_DIR = BASE_DIR / "uploads"
