@@ -2,6 +2,14 @@
   "version": 2,
   "routes": [
     {
+      "src": "/app.js",
+      "dest": "/app.js"
+    },
+    {
+      "src": "/style.css",
+      "dest": "/style.css"
+    },
+    {
       "src": "/(sessions|upload|files|health|ws|chat)/(.*)",
       "dest": "api/index.py"
     },
@@ -11,7 +19,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/index.html"
     }
   ]
 }
