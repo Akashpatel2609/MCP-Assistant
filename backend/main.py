@@ -47,8 +47,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve CSS / JS / assets under /static
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+# Serve CSS / JS / assets under /static (only when running locally; Vercel handles static routes at the CDN edge level)
+if not (os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.path.exists("/var/task")):
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 # ── Singletons ────────────────────────────────────────────────────────────
 router          = MCPRouter()
