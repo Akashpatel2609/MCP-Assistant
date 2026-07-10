@@ -11,7 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
-DB_PATH = Path("data/nexus_history.db")
+import os
+
+if os.getenv("VERCEL"):
+    DB_PATH = Path("/tmp/nexus_history.db")
+else:
+    DB_PATH = Path("data/nexus_history.db")
 
 
 class HistoryManager:

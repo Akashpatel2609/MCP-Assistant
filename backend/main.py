@@ -22,10 +22,14 @@ from mcp_router import MCPRouter
 
 load_dotenv()
 
-# ── Paths ─────────────────────────────────────────────────────────────────
 BASE_DIR     = Path(__file__).parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
-UPLOAD_DIR   = BASE_DIR / "uploads"
+
+if os.getenv("VERCEL"):
+    UPLOAD_DIR = Path("/tmp/uploads")
+else:
+    UPLOAD_DIR = BASE_DIR / "uploads"
+
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 # ── App ───────────────────────────────────────────────────────────────────
