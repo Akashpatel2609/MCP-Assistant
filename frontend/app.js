@@ -3,7 +3,8 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS_BASE     = `${WS_PROTOCOL}//${location.host}`;
+const WS_HOST     = location.protocol === 'file:' ? 'localhost:8000' : location.host;
+const WS_BASE     = `${WS_PROTOCOL}//${WS_HOST}`;
 
 const SUGGESTIONS = [
   'What is the Model Context Protocol?',
