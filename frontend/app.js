@@ -1,67 +1,64 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   MCP AI ASSISTANT — app.js
-   WebSocket client, message rendering, tool animations, file uploads
+   NEXUS AI — app.js (Production Interface)
+   Handles WebSockets, RAG updates, Sessions REST lifecycle, and animations.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ── Config ────────────────────────────────────────────────────────────
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE     = `${WS_PROTOCOL}//${location.host}`;
-const SESSION_ID  = crypto.randomUUID();
 
-// ── Tool metadata ─────────────────────────────────────────────────────
-const TOOLS = {
-  web_search:  { label: 'Web Search',  icon: '🔍', color: '#06b6d4' },
-  get_weather: { label: 'Weather',     icon: '🌤️', color: '#f59e0b' },
-  get_news:    { label: 'News Feed',   icon: '📰', color: '#ec4899' },
-  read_file:   { label: 'File Reader', icon: '📄', color: '#8b5cf6' },
-  list_files:  { label: 'Files',       icon: '📂', color: '#8b5cf6' },
-  db_query:    { label: 'Database',    icon: '🗄️', color: '#10b981' },
-  run_code:    { label: 'Code Runner', icon: '⚙️', color: '#f97316' },
-  none:        { label: 'Direct',      icon: '💬', color: '#475569' },
+const TOOL_META = {
+  web_search:  { label: 'Web Search',  icon: '🔍', color: '#60a5fa' },
+  get_weather: { label: 'Weather API', icon: '🌤️', color: '#fbbf24' },
+  get_news:    { label: 'RSS News',    icon: '📰', color: '#f472b6' },
+  read_file:   { label: 'Document Parser', icon: '📄', color: '#c084fc' },
+  list_files:  { label: 'Doc Registry',    icon: '📂', color: '#c084fc' },
+  db_query:    { label: 'SQL database',    icon: '🗄️', color: '#34d399' },
+  run_code:    { label: 'Python sandbox',  icon: '⚙️', color: '#fb923c' },
+  none:        { label: 'Agent Core',  icon: '💬', color: '#9ca3af' }
 };
 
-const QUICK_PROMPTS = [
-  '🔍 What is the Model Context Protocol?',
-  '🌤️ Weather in New York',
-  '📰 Show me today\'s top news',
-  '🗄️ Who are the top 3 highest paid employees?',
-  '⚙️ Run: print("Hello from MCP!")',
-  '📊 List all products sorted by price',
+const SUGGESTIONS = [
+  'What is the Model Context Protocol?',
+  'Who are the top 3 highest paid employees?',
+  'Show me today\'s top news headlines',
+  'Write a Python script to calculate fibonacci(10)'
 ];
 
-// ── DOM refs ──────────────────────────────────────────────────────────
-const messagesEl    = document.getElementById('messages');
-const msgInput      = document.getElementById('msg-input');
-const sendBtn       = document.getElementById('send-btn');
-const attachBtn     = document.getElementById('attach-btn');
-const fileInput     = document.getElementById('file-input');
-const thinkingBar   = document.getElementById('thinking-bar');
-const thinkingText  = document.getElementById('thinking-text');
-const connDot       = document.getElementById('conn-dot');
-const connLabel     = document.getElementById('conn-label');
-const headerAct     = document.getElementById('header-activity');
-const toolsGrid     = document.getElementById('tools-grid');
-const quickPrompts  = document.getElementById('quick-prompts');
-const fileChips     = document.getElementById('file-chips');
-const dropOverlay   = document.getElementById('drop-overlay');
-const clearChatBtn  = document.getElementById('clear-chat-btn');
-const sidebarToggle = document.getElementById('sidebar-toggle');
-const sidebar       = document.getElementById('sidebar');
-const statMsgs      = document.getElementById('stat-msgs');
-const statTools     = document.getElementById('stat-tools');
-const toastCont     = document.getElementById('toast-container');
-const welcomeCard   = document.getElementById('welcome-card');
+// ── DOM Nodes ────────────────────────────────────────────────────────
+const messageScroller    = document.getElementById('message-scroller');
+const queryTextInput      = document.getElementById('query-text-input');
+const submitQueryBtn     = document.getElementById('submit-query-btn');
+const attachDocumentBtn  = document.getElementById('attach-document-btn');
+const hiddenFileInput     = document.getElementById('hidden-file-input');
+const agentActiveStatus  = document.getElementById('agent-active-status');
+const agentStatusText    = document.getElementById('agent-status-text');
+const toastWrapper       = document.getElementById('toast-wrapper');
+const welcomeHeroPanel   = document.getElementById('welcome-hero-panel');
+const dragOverlayPanel   = document.getElementById('drag-overlay-panel');
+const activeUploadChips  = document.getElementById('active-upload-chips');
+const sessionListCont    = document.getElementById('session-list-container');
+const toolsGridCont      = document.getElementById('tools-grid-container');
+const activeSessionTitle = document.getElementById('active-session-title');
+const systemStatusBadge  = document.getElementById('system-status-indicator');
 
-// ── State ─────────────────────────────────────────────────────────────
-let ws            = null;
-let isStreaming   = false;
+const tabChats           = document.getElementById('tab-chats');
+const tabTools           = document.getElementById('tab-tools');
+const panelSessions      = document.getElementById('panel-sessions');
+const panelTools         = document.getElementById('panel-tools');
+
+const statMsgs           = document.getElementById('stat-msgs');
+const statLatency        = document.getElementById('stat-latency');
+const newChatBtn         = document.getElementById('new-chat-btn');
+
+// ── State ────────────────────────────────────────────────────────────
+let currentSessionId = crypto.randomUUID();
+let ws = null;
 let currentBubble = null;
-let currentRaw    = '';
-let msgCount      = 0;
-let toolCallCount = 0;
-let uploadedFiles = [];
+let currentRawText = "";
+let isBusy = false;
+let averageLatencyArray = [];
 
-// ── Configure marked.js ───────────────────────────────────────────────
+// Configure Markdown Parser
 marked.setOptions({
   gfm: true, breaks: true,
   highlight: (code, lang) => {
@@ -69,215 +66,339 @@ marked.setOptions({
       try { return hljs.highlight(code, { language: lang }).value; } catch {}
     }
     return hljs.highlightAuto(code).value;
-  },
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// WebSocket
+// WebSocket lifecycle
 // ═══════════════════════════════════════════════════════════════════════
-function connectWS() {
-  ws = new WebSocket(`${WS_BASE}/ws/${SESSION_ID}`);
+function initWebSocket(sessionId) {
+  if (ws) {
+    ws.close();
+  }
+  ws = new WebSocket(`${WS_BASE}/ws/${sessionId}`);
 
   ws.onopen = () => {
-    connDot.className = 'conn-dot connected';
-    connLabel.textContent = 'Connected';
-    headerAct.textContent = 'Ready to help';
-    sendBtn.disabled = false;
-    showToast('Connected to MCP Assistant', 'success');
+    updateSystemStatus('connected', 'Idle');
+    submitQueryBtn.disabled = !queryTextInput.value.trim() || isBusy;
   };
 
   ws.onclose = () => {
-    connDot.className = 'conn-dot disconnected';
-    connLabel.textContent = 'Disconnected';
-    sendBtn.disabled = true;
-    setTimeout(connectWS, 3000);
+    updateSystemStatus('disconnected', 'Connecting...');
+    submitQueryBtn.disabled = true;
+    setTimeout(() => initWebSocket(sessionId), 3000);
   };
 
   ws.onerror = () => {
-    connDot.className = 'conn-dot disconnected';
-    connLabel.textContent = 'Error — retrying…';
+    updateSystemStatus('disconnected', 'Network Error');
   };
 
-  ws.onmessage = (e) => handleServerMsg(JSON.parse(e.data));
+  ws.onmessage = (event) => handleMessageEvent(JSON.parse(event.data));
 }
 
-// ── Handle incoming server events ─────────────────────────────────────
-function handleServerMsg(data) {
-  switch (data.type) {
+function updateSystemStatus(state, text) {
+  const dot = systemStatusBadge.querySelector('.status-dot');
+  dot.className = `status-dot ${state === 'connected' ? 'green' : 'red'}`;
+  systemStatusBadge.lastChild.textContent = ` ${text}`;
+}
 
+function handleMessageEvent(payload) {
+  switch (payload.type) {
     case 'thinking':
-      thinkingText.textContent = data.text || 'Thinking…';
-      thinkingBar.style.display = 'flex';
-      headerAct.textContent = data.text || 'Thinking…';
+      agentStatusText.textContent = payload.text;
+      agentActiveStatus.style.display = 'flex';
       break;
 
     case 'tool_use':
-      activateTool(data.tool);
-      thinkingText.textContent = `Using ${TOOLS[data.tool]?.label || data.tool}…`;
-      headerAct.textContent = `🔧 ${TOOLS[data.tool]?.label || data.tool}`;
-      toolCallCount++;
-      statTools.textContent = toolCallCount;
+      activateToolHighlight(payload.tool);
+      agentStatusText.textContent = `Running ${TOOL_META[payload.tool]?.label || payload.tool}...`;
       break;
 
     case 'stream_start':
-      thinkingBar.style.display = 'none';
-      headerAct.textContent = 'Generating response…';
-      currentBubble = createAssistantBubble();
-      currentRaw = '';
-      isStreaming = true;
+      agentActiveStatus.style.display = 'none';
+      currentBubble = createMessageBubble('assistant');
+      currentRawText = "";
+      isBusy = true;
       break;
 
     case 'stream_token':
-      if (currentBubble && data.content) {
-        currentRaw += data.content;
-        renderStreamingBubble(currentBubble, currentRaw);
+      if (currentBubble && payload.content) {
+        currentRawText += payload.content;
+        currentBubble.bubble.innerHTML = marked.parse(currentRawText) + '<span class="stream-cursor"></span>';
+        hljs.highlightAll();
+        scrollArena();
       }
       break;
 
     case 'stream_end':
-      isStreaming = false;
+      isBusy = false;
       if (currentBubble) {
-        finaliseBubble(currentBubble, currentRaw, data.tools_used || []);
+        currentBubble.bubble.innerHTML = marked.parse(currentRawText);
+        hljs.highlightAll();
+        
+        // Append RAG and MCP traces
+        const traceContainer = document.createElement('div');
+        traceContainer.className = 'trace-row';
+
+        if (payload.rag_triggered) {
+          const chip = document.createElement('span');
+          chip.className = 'trace-chip rag';
+          chip.innerHTML = `🧬 Qdrant Vector Match`;
+          traceContainer.appendChild(chip);
+        }
+
+        payload.tools_used.forEach(tool => {
+          const meta = TOOL_META[tool] || { label: tool, icon: '🔧' };
+          const chip = document.createElement('span');
+          chip.className = 'trace-chip mcp';
+          chip.innerHTML = `${meta.icon} ${meta.label}`;
+          traceContainer.appendChild(chip);
+        });
+
+        if (traceContainer.children.length > 0) {
+          currentBubble.body.appendChild(traceContainer);
+        }
+
+        // Latency and stats footers
+        const metaFooter = document.createElement('div');
+        metaFooter.className = 'meta-footer';
+        metaFooter.innerHTML = `<span>Latency: ${payload.response_time_ms}ms</span>`;
+        currentBubble.body.appendChild(metaFooter);
+
+        averageLatencyArray.push(payload.response_time_ms);
+        calcLatency();
       }
+      
       currentBubble = null;
-      currentRaw = '';
-      headerAct.textContent = 'Ready to help';
+      currentRawText = "";
       deactivateAllTools();
-      // Sync stats from server
-      if (data.stats) {
-        statMsgs.textContent  = data.stats.message_count  ?? msgCount;
-        statTools.textContent = data.stats.tool_call_count ?? toolCallCount;
-        toolCallCount = data.stats.tool_call_count ?? toolCallCount;
-      }
-      setInputBusy(false);
+      setInputState(false);
+      loadSessions(); // refresh titles auto-generated in backend
       break;
 
     case 'error':
-      thinkingBar.style.display = 'none';
-      isStreaming = false;
-      setInputBusy(false);
-      showToast(`Error: ${data.message}`, 'error');
-      appendErrorMsg(data.message);
+      agentActiveStatus.style.display = 'none';
+      isBusy = false;
+      setInputState(false);
+      showToast(`Error: ${payload.message}`, 'error');
       break;
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Sending messages
+// Chat Session Actions
 // ═══════════════════════════════════════════════════════════════════════
-function sendMessage() {
-  const text = msgInput.value.trim();
-  if (!text || isStreaming || !ws || ws.readyState !== WebSocket.OPEN) return;
-
-  hideWelcome();
-  appendUserMsg(text);
-  msgCount++;
-  statMsgs.textContent = msgCount;
-
-  ws.send(JSON.stringify({ message: text }));
-  msgInput.value = '';
-  autoResizeTextarea();
-  setInputBusy(true);
-}
-
-function setInputBusy(busy) {
-  isStreaming = busy;
-  sendBtn.disabled = busy;
-  msgInput.disabled = busy;
-  if (!busy) msgInput.focus();
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Message rendering
-// ═══════════════════════════════════════════════════════════════════════
-function appendUserMsg(text) {
-  const wrap = document.createElement('div');
-  wrap.className = 'msg-wrap user';
-  wrap.innerHTML = `
-    <div class="msg-avatar" aria-label="You">🧑</div>
-    <div class="msg-body">
-      <div class="msg-bubble">${escapeHtml(text)}</div>
-    </div>`;
-  messagesEl.appendChild(wrap);
-  scrollBottom();
-}
-
-function createAssistantBubble() {
-  const wrap = document.createElement('div');
-  wrap.className = 'msg-wrap assistant';
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.innerHTML = '<span class="stream-cursor"></span>';
-  wrap.innerHTML = `<div class="msg-avatar" aria-label="AI Assistant">🤖</div>`;
-  const body = document.createElement('div');
-  body.className = 'msg-body';
-  body.appendChild(bubble);
-  wrap.appendChild(body);
-  messagesEl.appendChild(wrap);
-  scrollBottom();
-  return { wrap, bubble, body };
-}
-
-function renderStreamingBubble({ bubble }, raw) {
-  bubble.innerHTML = marked.parse(raw) + '<span class="stream-cursor"></span>';
-  hljs.highlightAll();
-  scrollBottom();
-}
-
-function finaliseBubble({ bubble, body }, raw, toolsUsed) {
-  bubble.innerHTML = marked.parse(raw);
-  hljs.highlightAll();
-
-  if (toolsUsed.length > 0) {
-    const toolRow = document.createElement('div');
-    toolRow.className = 'msg-tools';
-    toolsUsed.forEach(t => {
-      const meta = TOOLS[t] || { icon: '🔧', label: t, color: '#6366f1' };
-      const badge = document.createElement('span');
-      badge.className = 'tool-badge';
-      badge.style.cssText = `
-        --tc-bg: ${meta.color}22;
-        --tc-border: ${meta.color}44;
-        --tc-color: ${meta.color};
+async function loadSessions() {
+  try {
+    const res = await fetch('/sessions');
+    const data = await res.json();
+    sessionListCont.innerHTML = "";
+    data.sessions.forEach(sess => {
+      const item = document.createElement('div');
+      item.className = `session-item ${sess.id === currentSessionId ? 'active' : ''}`;
+      item.innerHTML = `
+        <span class="session-title-text">${escapeHtml(sess.title)}</span>
+        <button class="btn-delete-session" title="Delete session">×</button>
       `;
-      badge.textContent = `${meta.icon} ${meta.label}`;
-      toolRow.appendChild(badge);
+      item.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-delete-session')) {
+          e.stopPropagation();
+          deleteSession(sess.id);
+        } else {
+          switchSession(sess.id, sess.title);
+        }
+      });
+      sessionListCont.appendChild(item);
     });
-    body.appendChild(toolRow);
+  } catch (e) {
+    console.error("Failed to load historical sessions:", e);
   }
-  scrollBottom();
 }
 
-function appendErrorMsg(msg) {
+async function deleteSession(id) {
+  await fetch(`/sessions/${id}`, { method: 'DELETE' });
+  if (id === currentSessionId) {
+    startNewSession();
+  } else {
+    loadSessions();
+  }
+}
+
+function switchSession(id, title) {
+  currentSessionId = id;
+  activeSessionTitle.textContent = title;
+  initWebSocket(id);
+  loadSessions();
+  restoreMessages(id);
+}
+
+async function restoreMessages(id) {
+  const res = await fetch(`/sessions/${id}/messages`);
+  const data = await res.json();
+  clearScroller();
+  
+  if (data.messages.length === 0) {
+    showWelcomeHero();
+    return;
+  }
+  
+  hideWelcomeHero();
+  data.messages.forEach(msg => {
+    const isUser = msg.role === 'user';
+    const b = createMessageBubble(msg.role);
+    if (isUser) {
+      b.bubble.textContent = msg.content;
+    } else {
+      b.bubble.innerHTML = marked.parse(msg.content);
+      
+      const traceContainer = document.createElement('div');
+      traceContainer.className = 'trace-row';
+      msg.tools_used.forEach(tool => {
+        const meta = TOOL_META[tool] || { label: tool, icon: '🔧' };
+        const chip = document.createElement('span');
+        chip.className = 'trace-chip mcp';
+        chip.innerHTML = `${meta.icon} ${meta.label}`;
+        traceContainer.appendChild(chip);
+      });
+      if (traceContainer.children.length > 0) {
+        b.body.appendChild(traceContainer);
+      }
+    }
+  });
+  hljs.highlightAll();
+  scrollArena();
+}
+
+function startNewSession() {
+  currentSessionId = crypto.randomUUID();
+  activeSessionTitle.textContent = "New Chat";
+  initWebSocket(currentSessionId);
+  clearScroller();
+  showWelcomeHero();
+  loadSessions();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Document Drop Zone and Parsing Uploads
+// ═══════════════════════════════════════════════════════════════════════
+async function uploadFile(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  
+  const progressChip = document.createElement('div');
+  progressChip.className = 'upload-chip';
+  progressChip.innerHTML = `🧬 Processing: ${escapeHtml(file.name)}...`;
+  activeUploadChips.appendChild(progressChip);
+
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    progressChip.remove();
+    
+    if (data.status === 'success') {
+      showToast(`${file.name} successfully indexed to Vector DB!`, 'success');
+      // Append temporary system ingestion trace update to user arena
+      const systemBox = createMessageBubble('assistant');
+      systemBox.bubble.innerHTML = `<span style="color:#60a5fa">🧬 **Document Indexed**</span><br>${data.rag_status}`;
+    }
+  } catch (e) {
+    progressChip.remove();
+    showToast(`Upload failed for ${file.name}`, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Utilities and DOM Rendering
+// ═══════════════════════════════════════════════════════════════════════
+function createMessageBubble(role) {
   const wrap = document.createElement('div');
-  wrap.className = 'msg-wrap assistant';
-  wrap.innerHTML = `
-    <div class="msg-avatar">⚠️</div>
-    <div class="msg-body">
-      <div class="msg-bubble" style="border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.06);">
-        <strong style="color:#ef4444;">Error</strong><br>${escapeHtml(msg)}
-      </div>
-    </div>`;
-  messagesEl.appendChild(wrap);
-  scrollBottom();
+  wrap.className = `message-wrap ${role}`;
+  
+  const icon = role === 'user' ? '🧑' : '🤖';
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar-icon';
+  avatar.textContent = icon;
+  
+  const body = document.createElement('div');
+  body.className = 'message-body';
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble-card';
+  
+  body.appendChild(bubble);
+  wrap.appendChild(avatar);
+  wrap.appendChild(body);
+  
+  messageScroller.appendChild(wrap);
+  scrollArena();
+  return { bubble, body };
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Tools sidebar
-// ═══════════════════════════════════════════════════════════════════════
-function buildToolCards() {
-  const entries = Object.entries(TOOLS).filter(([k]) => k !== 'none');
-  toolsGrid.innerHTML = entries.map(([key, t]) => `
-    <div class="tool-card" id="tc-${key}" style="--tc:${t.color}">
-      <span class="tool-icon">${t.icon}</span>
-      <span class="tool-name">${t.label}</span>
-      <span class="tool-status">idle</span>
-    </div>`).join('');
+function submitQuery() {
+  const text = queryTextInput.value.trim();
+  if (!text || isBusy || !ws || ws.readyState !== WebSocket.OPEN) return;
+  
+  hideWelcomeHero();
+  const userBubble = createMessageBubble('user');
+  userBubble.bubble.textContent = text;
+  
+  ws.send(jsonPayload({ message: text }));
+  queryTextInput.value = "";
+  autoSizeTextarea();
+  setInputState(true);
 }
 
-function activateTool(toolKey) {
+function setInputState(busy) {
+  isBusy = busy;
+  queryTextInput.disabled = busy;
+  submitQueryBtn.disabled = busy || !queryTextInput.value.trim();
+  if (!busy) queryTextInput.focus();
+}
+
+function scrollArena() {
+  requestAnimationFrame(() => {
+    messageScroller.scrollTop = messageScroller.scrollHeight;
+  });
+}
+
+function clearScroller() {
+  messageScroller.innerHTML = "";
+}
+
+function showWelcomeHero() {
+  messageScroller.appendChild(welcomeHeroPanel);
+  welcomeHeroPanel.style.display = 'flex';
+}
+
+function hideWelcomeHero() {
+  welcomeHeroPanel.style.display = 'none';
+}
+
+function autoSizeTextarea() {
+  queryTextInput.style.height = 'auto';
+  queryTextInput.style.height = Math.min(queryTextInput.scrollHeight, 160) + 'px';
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  toastWrapper.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 400);
+  }, 4000);
+}
+
+function calcLatency() {
+  if (averageLatencyArray.length === 0) return;
+  const avg = averageLatencyArray.reduce((a, b) => a + b, 0) / averageLatencyArray.length;
+  statLatency.textContent = `${Math.round(avg)}ms`;
+}
+
+function activateToolHighlight(tool) {
   deactivateAllTools();
-  const card = document.getElementById(`tc-${toolKey}`);
+  const card = document.getElementById(`tc-${tool}`);
   if (card) {
     card.classList.add('active');
     card.querySelector('.tool-status').textContent = 'running';
@@ -291,159 +412,81 @@ function deactivateAllTools() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Quick prompts
-// ═══════════════════════════════════════════════════════════════════════
-function buildQuickPrompts() {
-  quickPrompts.innerHTML = QUICK_PROMPTS.map(p => `
-    <button class="qp-chip" data-prompt="${escapeAttr(p)}">${p}</button>`
-  ).join('');
-
-  quickPrompts.addEventListener('click', e => {
-    const chip = e.target.closest('.qp-chip');
-    if (!chip) return;
-    const prompt = chip.dataset.prompt;
-    if (isStreaming) return;
-    msgInput.value = prompt;
-    autoResizeTextarea();
-    sendMessage();
-  });
+function buildToolsRegistry() {
+  toolsGridCont.innerHTML = Object.entries(TOOL_META)
+    .filter(([k]) => k !== 'none')
+    .map(([key, t]) => `
+      <div class="tool-card" id="tc-${key}">
+        <span class="tool-icon">${t.icon}</span>
+        <div class="tool-info">
+          <span class="tool-name">${t.label}</span>
+          <span class="tool-status">idle</span>
+        </div>
+      </div>
+    `).join('');
 }
 
-// ── Cap chips in welcome card ─────────────────────────────────────────
-document.querySelectorAll('.cap-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const map = {
-      web_search:  '🔍 Search the web for the latest AI news',
-      get_weather: '🌤️ What\'s the weather in London?',
-      read_file:   '📂 List my uploaded files',
-      db_query:    '🗄️ Show me all employees in Engineering',
-      run_code:    '⚙️ Write Python code to calculate fibonacci(10)',
-      get_news:    '📰 Show me today\'s top news headlines',
-    };
-    const tool = chip.dataset.tool;
-    if (map[tool]) { msgInput.value = map[tool]; autoResizeTextarea(); msgInput.focus(); }
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════
-// File Upload
-// ═══════════════════════════════════════════════════════════════════════
-async function uploadFile(file) {
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const res = await fetch('/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (data.status === 'success') {
-      uploadedFiles.push(data.filename);
-      addFileChip(data.filename);
-      showToast(`📎 ${data.filename} uploaded`, 'success');
+function buildSuggestions() {
+  const container = document.getElementById('suggestion-pills-container');
+  container.innerHTML = SUGGESTIONS.map(s => `
+    <button class="suggest-pill">${s}</button>
+  `).join('');
+  
+  container.addEventListener('click', (e) => {
+    if (e.target.classList.contains('suggest-pill')) {
+      queryTextInput.value = e.target.textContent;
+      autoSizeTextarea();
+      submitQuery();
     }
-  } catch {
-    showToast('Upload failed', 'error');
-  }
+  });
 }
 
-function addFileChip(name) {
-  const chip = document.createElement('div');
-  chip.className = 'file-chip';
-  chip.innerHTML = `📎 ${escapeHtml(name)} <button title="Remove" onclick="this.parentElement.remove()">×</button>`;
-  fileChips.appendChild(chip);
-}
-
-attachBtn.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => {
-  [...e.target.files].forEach(uploadFile);
-  fileInput.value = '';
+// ── Event bindings ────────────────────────────────────────────────────
+tabChats.addEventListener('click', () => {
+  tabChats.classList.add('active'); tabTools.classList.remove('active');
+  panelSessions.style.display = 'block'; panelTools.style.display = 'none';
+});
+tabTools.addEventListener('click', () => {
+  tabTools.classList.add('active'); tabChats.classList.remove('active');
+  panelTools.style.display = 'block'; panelSessions.style.display = 'none';
 });
 
-// Drag-and-drop
-const dropZone = document.querySelector('.input-zone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropOverlay.classList.add('active'); });
-dropZone.addEventListener('dragleave', e => { if (!dropZone.contains(e.relatedTarget)) dropOverlay.classList.remove('active'); });
-dropZone.addEventListener('drop', e => {
+newChatBtn.addEventListener('click', startNewSession);
+attachDocumentBtn.addEventListener('click', () => hiddenFileInput.click());
+hiddenFileInput.addEventListener('change', (e) => {
+  [...e.target.files].forEach(uploadFile);
+  hiddenFileInput.value = "";
+});
+
+queryTextInput.addEventListener('input', () => {
+  autoSizeTextarea();
+  submitQueryBtn.disabled = !queryTextInput.value.trim() || isBusy;
+});
+queryTextInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    submitQuery();
+  }
+});
+submitQueryBtn.addEventListener('click', submitQuery);
+
+// Drag & drop bindings
+const mainArea = document.querySelector('.app');
+mainArea.addEventListener('dragover', (e) => { e.preventDefault(); dragOverlayPanel.classList.add('active'); });
+mainArea.addEventListener('dragleave', (e) => { if (!mainArea.contains(e.relatedTarget)) dragOverlayPanel.classList.remove('active'); });
+mainArea.addEventListener('drop', (e) => {
   e.preventDefault();
-  dropOverlay.classList.remove('active');
+  dragOverlayPanel.classList.remove('active');
   [...e.dataTransfer.files].forEach(uploadFile);
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// Input handling
-// ═══════════════════════════════════════════════════════════════════════
-msgInput.addEventListener('input', () => {
-  autoResizeTextarea();
-  sendBtn.disabled = !msgInput.value.trim() || isStreaming;
-});
-
-msgInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-
-sendBtn.addEventListener('click', sendMessage);
-
-function autoResizeTextarea() {
-  msgInput.style.height = 'auto';
-  msgInput.style.height = Math.min(msgInput.scrollHeight, 180) + 'px';
+// JSON and string parsers
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+function jsonPayload(obj) { return JSON.stringify(obj); }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Utilities
-// ═══════════════════════════════════════════════════════════════════════
-function scrollBottom() {
-  requestAnimationFrame(() => {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  });
-}
-
-function hideWelcome() {
-  if (welcomeCard) {
-    welcomeCard.style.opacity = '0';
-    welcomeCard.style.transform = 'scale(.96)';
-    welcomeCard.style.transition = 'all .3s ease';
-    setTimeout(() => welcomeCard.remove(), 300);
-  }
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
-function escapeAttr(str) { return str.replace(/"/g, '&quot;'); }
-
-function showToast(msg, type = 'info', duration = 3500) {
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = `${icons[type] || ''} ${msg}`;
-  toastCont.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(20px)'; toast.style.transition = 'all .3s'; setTimeout(() => toast.remove(), 300); }, duration);
-}
-
-// Clear chat
-clearChatBtn.addEventListener('click', () => {
-  messagesEl.innerHTML = '';
-  msgCount = 0; toolCallCount = 0;
-  statMsgs.textContent = '0'; statTools.textContent = '0';
-  showToast('Conversation cleared', 'info');
-  // Re-insert welcome
-  const wc = document.createElement('div');
-  wc.id = 'welcome-card';
-  wc.className = 'welcome-card';
-  wc.innerHTML = `<div class="welcome-glow"></div>
-    <div class="welcome-icon"><svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="23" stroke="url(#wlg2)" stroke-width="2"/><circle cx="24" cy="24" r="5" fill="url(#wlg2)"/><defs><linearGradient id="wlg2" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs></svg></div>
-    <h2 class="welcome-title">Chat cleared! Ready to help again.</h2>
-    <p class="welcome-subtitle">Ask me anything — I can search the web, query databases, run code, and more.</p>`;
-  messagesEl.appendChild(wc);
-});
-
-// Sidebar toggle (mobile)
-sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
-
-// ═══════════════════════════════════════════════════════════════════════
-// Init
-// ═══════════════════════════════════════════════════════════════════════
-buildToolCards();
-buildQuickPrompts();
-connectWS();
-msgInput.focus();
+// Initialization
+buildToolsRegistry();
+buildSuggestions();
+startNewSession();

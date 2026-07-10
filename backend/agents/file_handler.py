@@ -1,5 +1,6 @@
 """
-agents/file_handler.py — File Upload, Read, Write Agent
+agents/file_handler.py — Document Parser Agent with PDF, Word DOCX, and TXT support.
+Integrated with the central RAG index pipeline.
 """
 
 import aiofiles
@@ -10,7 +11,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 
 class FileHandlerAgent:
-    """Handles reading and listing files that users upload."""
+    """Handles reading and listing files uploaded to the server."""
 
     async def read_file(self, filename: str) -> str:
         filename = Path(filename).name  # prevent path traversal
@@ -18,8 +19,25 @@ class FileHandlerAgent:
         if not filepath.exists():
             return f"❌ File **'{filename}'** not found. Use the upload button to add files."
         try:
-            async with aiofiles.open(filepath, "r", encoding="utf-8", errors="replace") as f:
-                content = await f.read()
+            # Import parsers inline to allow RAGEngine class lazy loading
+            ext = filepath.suffix.lower()
+            if ext == ".txt":
+                async with aiofiles.open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                    content = await f.read()
+            elif ext == ".pdf":
+                from pypdf import PdfReader
+                reader = PdfReader(filepath)
+                content = "\n".join([page.extract_text() or "" for page in reader.pages])
+            elif ext in [".docx", ".doc"]:
+                from docx import Document
+                doc = Document(filepath)
+                content = "\n".join([para.text for para in doc.paragraphs])
+            elif ext in [".py", ".json", ".md", ".js", ".ts", ".html", ".css"]:
+                async with aiofiles.open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                    content = await f.read()
+            else:
+                return f"❌ Unsupported file type format: {ext}"
+
             size = len(content)
             truncated = size > 8000
             if truncated:
@@ -32,9 +50,11 @@ class FileHandlerAgent:
 
     async def list_files(self) -> str:
         files = sorted(UPLOAD_DIR.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True)
+        # Exclude internal placeholder files
+        files = [f for f in files if f.name != ".gitkeep"]
         if not files:
-            return "📂 No files uploaded yet. Use the 📎 button to upload a file."
-        lines = ["📂 **Uploaded files:**\n"]
+            return "📂 No documents uploaded yet. Use the 📎 button to upload a document."
+        lines = ["📂 **Uploaded documents:**\n"]
         for f in files:
             size_kb = f.stat().st_size / 1024
             lines.append(f"• **{f.name}** ({size_kb:.1f} KB)")
