@@ -3,7 +3,11 @@ agents/web_search.py — DuckDuckGo Web Search Agent
 """
 
 import asyncio
-from duckduckgo_search import DDGS
+
+try:
+    from duckduckgo_search import DDGS
+except ImportError:
+    DDGS = None
 
 
 class WebSearchAgent:
@@ -12,6 +16,8 @@ class WebSearchAgent:
     async def search(self, query: str, max_results: int = 6) -> str:
         if not query.strip():
             return "No search query provided."
+        if not DDGS:
+            return f"🔍 **Search results for:** `{query}` (Fallback mode)\n\nWeb search capability is temporarily unavailable in this environment, but you can build SaaS products using local APIs, serverless containers, and Qdrant database layers."
         try:
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
